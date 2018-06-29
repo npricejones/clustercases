@@ -49,16 +49,18 @@ abundancefac = 0 # scaling factor for abundance noise
 specfac = 0 # scaling factor for spectra noise
 suff = 'H' # element denominator
 metric = 'precomputed' # metric for distances
+fullfitkeys = ['TEFF','LOGG']
+crossfitatms = [6,7,8,11,12,13,14,16,19,20,22,23,25,26,28]
 
 # DBSCAN parameters
-amin_samples = np.array([2,3,4,5,6])
 smin_samples = np.array([2,3])#,5,10])#,15,20,50])
-asamples = len(amin_samples)
 ssamples = len(smin_samples)
-aeps = np.array([0.1,0.3,0.35,0.4,0.5])
 seps = np.array([0.05,0.075,0.1])#,0.5,1.0])
-amin_samples = np.tile(amin_samples,len(aeps))
 smin_samples = np.tile(smin_samples,len(seps))
+amin_samples = np.array([2,3,4,5,6])
+asamples = len(amin_samples)
+aeps = np.array([0.1,0.3,0.35,0.4,0.5])
+amin_samples = np.tile(amin_samples,len(aeps))
 aeps = np.repeat(aeps,asamples)
 seps = np.repeat(seps,ssamples)
 
@@ -167,7 +169,7 @@ specinfo.addnoise(normalgeneration,num=np.sum(numm),numprop=7214,
                   stds = specfac*np.ones(specinfo.spectra.shape))
 
 teffs = photosphere['TEFF']
-loggs = photospe['LOGG']
+loggs = photosphere['LOGG']
 
 # Extract chemistry columns
 chcol = np.where(centers.attrs['atmnums']==6)[0]
@@ -215,46 +217,7 @@ fehs = np.repeat(centers[:,fehcol],numm)
 nihcol = np.where(centers.attrs['atmnums']==28)[0]
 nihs = np.repeat(centers[:,nihcol],numm)
 
-# Create fit terms
-
-indeps = np.ones((mem,36))
-indeps[:,1] = teffs-np.median(teffs) #T linear
-indeps[:,2] = loggs-np.median(loggs) #logg linear
-indeps[:,3] = (teffs-np.median(teffs))**2 #T squared
-indeps[:,4] = (teffs-np.median(teffs))*(loggs-np.median(loggs)) #T logg
-indeps[:,5] = (loggs-np.median(loggs))**2 # logg squared
-indeps[:,6] = (teffs-np.median(teffs))*(chs-np.median(chs)) #T C
-indeps[:,7] = (teffs-np.median(teffs))*(nhs-np.median(nhs)) #T N 
-indeps[:,8] = (teffs-np.median(teffs))*(ohs-np.median(ohs)) #T O
-indeps[:,9] = (teffs-np.median(teffs))*(nahs-np.median(nahs)) #T Na
-indeps[:,10] = (teffs-np.median(teffs))*(mghs-np.median(mghs)) #T Mg
-indeps[:,11] = (teffs-np.median(teffs))*(alhs-np.median(alhs)) #T Al
-indeps[:,12] = (teffs-np.median(teffs))*(sihs-np.median(sihs)) #T Si
-indeps[:,13] = (teffs-np.median(teffs))*(shs-np.median(shs)) #T S
-indeps[:,14] = (teffs-np.median(teffs))*(khs-np.median(khs)) #T K
-indeps[:,15] = (teffs-np.median(teffs))*(cahs-np.median(cahs)) #T Ca
-indeps[:,16] = (teffs-np.median(teffs))*(tihs-np.median(tihs)) #T Ti
-indeps[:,17] = (teffs-np.median(teffs))*(vhs-np.median(vhs)) #T V
-indeps[:,18] = (teffs-np.median(teffs))*(mnhs-np.median(mnhs)) #T Mn
-indeps[:,19] = (teffs-np.median(teffs))*(fehs-np.median(fehs)) # T Fe
-indeps[:,20] = (teffs-np.median(teffs))*(nihs-np.median(nihs)) #T Ni 
-indeps[:,21] = (loggs-np.median(loggs))*(chs-np.median(chs)) #g C 
-indeps[:,22] = (loggs-np.median(loggs))*(nhs-np.median(nhs)) #g N  
-indeps[:,23] = (loggs-np.median(loggs))*(ohs-np.median(ohs)) #g O 
-indeps[:,24] = (loggs-np.median(loggs))*(nahs-np.median(nahs)) #g Na
-indeps[:,25] = (loggs-np.median(loggs))*(mghs-np.median(mghs)) #g Mg
-indeps[:,26] = (loggs-np.median(loggs))*(alhs-np.median(alhs)) #g Al
-indeps[:,27] = (loggs-np.median(loggs))*(sihs-np.median(sihs)) #g Si
-indeps[:,28] = (loggs-np.median(loggs))*(shs-np.median(shs)) #g S
-indeps[:,29] = (loggs-np.median(loggs))*(khs-np.median(khs)) #g K
-indeps[:,30] = (loggs-np.median(loggs))*(cahs-np.median(cahs)) #g Ca
-indeps[:,31] = (loggs-np.median(loggs))*(tihs-np.median(tihs)) #g Ti
-indeps[:,32] = (loggs-np.median(loggs))*(vhs-np.median(vhs)) #g V
-indeps[:,33] = (loggs-np.median(loggs))*(mnhs-np.median(mnhs)) #g Mn
-indeps[:,34] = (loggs-np.median(loggs))*(fehs-np.median(fehs)) #g Fe
-indeps[:,35] = (loggs-np.median(loggs))*(nihs-np.median(nihs))#g Ni
-
-findeps = create_indeps(mem,full=np.array([teffs,loggs]),  cross=np.array([chs,nhs,ohs,nahs,mghs,alhs,sihs,shs,khs,cahs,tihs,vhs,mnhs,fehs,nihs]))
+indeps = create_indeps(mem,full=np.array([teffs,loggs]),  cross=np.array([chs,nhs,ohs,nahs,mghs,alhs,sihs,shs,khs,cahs,tihs,vhs,mnhs,fehs,nihs]))
 
 # Fit out photospheric parameters
 coeff_terms = np.dot(np.dot(np.linalg.inv(np.dot(indeps.T,indeps)),indeps.T),specinfo.spectra)
@@ -297,8 +260,7 @@ for i in range(len(seps)):
     end = time.time()
     print('Done DBSCAN {0} of {1} with eps {2} and min neighbours {3} - {4} seconds'.format(i+1,len(seps),seps[i],smin_samples[i],np.round(end-start,2)))
     print('I found {0} out of {1} clusters'.format(len(plabs),numc)) 
- 
-"""
+    
 for i in range(len(aeps)):
     start = time.time()
     if metric=='precomputed':
@@ -322,57 +284,26 @@ for i in range(len(aeps)):
     print('I found {0} out of {1} clusters'.format(len(plabs),numc))
 datafile.close() 
 
-
 spectra = specinfo.spectra
 centers = clusters.centerdata[0]
 
-# Create the PdfPages object to which we will save the pages:
-# The with statement makes sure that the PdfPages object is closed properly at
-# the end of the block, even if an Exception occurs.
-with PdfPages('case8.pdf') as pdf:
-    for p in range(len(spec_labels_pred)):
-        size_distribution(spec_labels_pred[p],labels_true,
-                          'eps = {0}, min ={1}'.format(seps[p],smin_samples[p]),
-                          sizebins = np.linspace(1,1000,20))
-        plt.savefig()
-        plt.close()
-    for p in range(len(cen_labels_pred)):
-        size_distribution(cen_labels_pred[p],labels_true,
-                          'eps = {0}, min ={1}'.format(aeps[p],amin_samples[p]),
-                          sizebins = np.linspace(1,1000,20))
-        plt.savefig()
-        plt.close()
-    
-    
-    plt.figure(figsize=(3, 3))
-    plt.plot(range(7), [3, 1, 4, 1, 5, 9, 2], 'r-o')
-    plt.title('Page One')
-    pdf.savefig()  # saves the current figure into a pdf page
-    plt.close()
+plot = h5py.File('case7_{0}'.format(clusters.timestamps[0].decode('UTF-8')),'w')
 
-    plt.rc('text', usetex=True)
-    plt.figure(figsize=(8, 6))
-    x = np.arange(0, 5, 0.1)
-    plt.plot(x, np.sin(x), 'b-')
-    plt.title('Page Two')
-    pdf.attach_note("plot of sin(x)")  # you can add a pdf note to
-                                       # attach metadata to a page
-    pdf.savefig()
-    plt.close()
+plot.attrs['sample'] = sample
+plot.attrs['abundancefac'] = 0
+plot.attrs['specfac'] = 0
+plot.attrs['fullfit'] = fullfitkeys
+plot.attrs['crossfit'] = crossfitatms
+plot.attrs['spec_min'] = smin_samples
+plot.attrs['spec_eps'] = seps
+plot.attrs['abun_min'] = amin_samples
+plot.attrs['abun_eps'] = aeps
+plot['labels_true'] = labels_true
+plot['spec_labels_pred'] = spec_labels_pred
+plot['abun_labels_pred'] = abun_labels_pred
+plot['spec_cbn'] = spec_cbn
+plot['abun_cbn'] = cen_cbn
 
-    plt.rc('text', usetex=False)
-    fig = plt.figure(figsize=(4, 5))
-    plt.plot(x, x*x, 'ko')
-    plt.title('Page Three')
-    pdf.savefig(fig)  # or you can pass a Figure object to pdf.savefig
-    plt.close()
+plot.close()
 
-    # We can also set the file's metadata via the PdfPages object:
-    d = pdf.infodict()
-    d['Title'] = 'Multipage PDF Example'
-    d['Author'] = u'Jouni K. Sepp\xe4nen'
-    d['Subject'] = 'How to create a multipage pdf file and set its metadata'
-    d['Keywords'] = 'PdfPages multipage keywords author title subject'
-    d['CreationDate'] = datetime.datetime(2009, 11, 13)
-    d['ModDate'] = datetime.datetime.today()
-    """
+
