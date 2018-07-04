@@ -12,14 +12,17 @@ import numpy as np
 from clustering_stats import *
 
 from bokeh.layouts import row, column, widgetbox
-from bokeh.models import BoxSelectTool, LassoSelectTool, Spacer
+from bokeh.models import BoxSelectTool, LassoSelectTool, Spacer,CustomJS
+from bokeh.models.scales import LinearScale, LogScale
 from bokeh.plotting import figure, curdoc, ColumnDataSource
-from bokeh.models.widgets import RadioButtonGroup,AutocompleteInput
+from bokeh.models.widgets import Toggle,RadioButtonGroup,AutocompleteInput
 from bokeh.io import show
 
 case = 7
 timestamp = '2018-06-29.20.20.13.729481'
 neighbours = 20
+pad = 0.1
+backgroundhist = True
 
 data = h5py.File('case{0}_{1}.hdf5'.format(case,timestamp),'r+')
 
@@ -53,8 +56,12 @@ efficiency, completeness, plabs, matchtlabs = efficiency_completeness(spec_label
                                                                  minmembers=1)
 
 data={'Efficiency':efficiency,'Completeness':completeness,
-          'Found Size':pcount,'Found Silhouette':ssil_found,
-          'True Silhouette':ssil_true[matchtlabs],'Matched Size':tcount[matchtlabs]}
+      'Found Silhouette':ssil_found,'True Silhouette':ssil_true[matchtlabs],
+      'Found Size':pcount,'Matched Size':tcount[matchtlabs]}
+
+scales = {'Efficiency':LinearScale,'Completeness':LinearScale,
+          'Found Size':LogScale,'Found Silhouette':LinearScale,
+          'True Silhouette':LinearScale,'Matched Size':LogScale}
 
 TOOLS="pan,wheel_zoom,box_select,lasso_select,reset"
 
@@ -62,81 +69,104 @@ resultpath = '/Users/nat/chemtag/clustercases/'
 
 files = glob.glob('*.hdf5')
 
+backcolor = "#FFF7EA" #cream
+mainptcolor = "#4C230A" #dark brown
+
 #case = AutocompleteInput(completions=)
 #timestamp = AutocompleteInput(completions=)
 
 # create the scatter plot
-p = figure(tools=TOOLS, plot_width=600, plot_height=600, min_border=10, min_border_left=50,
-           toolbar_location="above", x_axis_location=None, y_axis_location=None,
-           title="Linked Histograms",x_axis_label='efficiency',y_axis_label='completeness')
-p.background_fill_color = "#fafafa"
+p = figure(tools=TOOLS, plot_width=430, plot_height=430, min_border=10, min_border_left=50,
+           toolbar_location="above", x_axis_location='below', y_axis_location='left',
+           title="Linked Histograms",x_axis_label='Efficiency',y_axis_label='Completeness',
+           x_range=(-pad,1+pad),y_range=(-pad,1+pad))
+p.background_fill_color = backcolor
 p.select(BoxSelectTool).select_every_mousemove = False
 p.select(LassoSelectTool).select_every_mousemove = False
 
-r = p.scatter(efficiency, completeness, size=3, color="#3A5785", alpha=0.6)
+r = p.scatter(efficiency, completeness, size=3, color=mainptcolor, alpha=0.6)
+minlim = np.min([np.min(r.data_source.data['x']),np.min(r.data_source.data['y'])])
+maxlim = np.max([np.max(r.data_source.data['x']),np.max(r.data_source.data['y'])])
+l = p.line([minlim,maxlim],[minlim,maxlim],color=mainptcolor)
 
-LINE_ARGS = dict(color="#3A5785", line_color=None)
+eps = 0.5
+
+LINE_ARGS = dict(color=mainptcolor, line_color=None)
 
 class prophist(object):
     def __init__(self,arr,bins=20):
         self.arr = arr
         self.hist, self.edges = np.histogram(arr, bins=bins)
-        self.hist = np.log10(self.hist)
-        self.hist[np.isnan(self.hist)] = -1
-        self.hist[np.isinf(self.hist)] = -1
+        self.hist = self.hist.astype('float')
+        # self.hist = np.log10(self.hist)
+        # self.hist[np.isnan(self.hist)] = -1
+        # self.hist[np.isinf(self.hist)] = -1
         self.zeros = np.zeros(len(self.edges)-1)
         self.hist_max = max(self.hist)*1.1
 
-    def plot_hist(self,x_range=(),xlabel='',line=LINE_ARGS,xscale='linear',yscale='linear'):
+    def plot_hist(self,x_range=(),xlabel='',line=LINE_ARGS,xscale='linear',yscale='linear',background=[]):
+        if background != []:
+            self.backhist = np.histogram(background,bins=self.edges)[0]
+            self.backhist = self.backhist.astype('float')
+            backmax = np.max(self.backhist)*1.1
+            if backmax > self.hist_max:
+                self.hist_max = backmax
+        ymax = self.hist_max
         if x_range==():
             x_range = (np.min(self.edges),np.max(self.edges))
-
-        self.pt = figure(toolbar_location=None, plot_width=300, plot_height=250, x_range=x_range,
-                    y_range=(0, self.hist_max), min_border=10, min_border_left=50, y_axis_location="right",
+        if yscale=='linear':
+            ymin = 0
+        elif yscale=='log':
+            ymin=eps+eps/2.
+            self.hist[self.hist < eps] = eps
+            if background != []:
+                self.backhist[self.backhist < eps] = eps
+        self.pt = figure(toolbar_location=None, plot_width=220, plot_height=200, x_range=x_range,
+                    y_range=(ymin, self.hist_max), min_border=10, min_border_left=50, y_axis_location="right",
                     x_axis_label=xlabel,x_axis_type=xscale,y_axis_type=yscale)
         self.pt.xgrid.grid_line_color = None
         #pt.yaxis.major_label_orientation = np.pi/4
-        self.pt.background_fill_color = "#fafafa"
+        self.pt.background_fill_color = backcolor
 
-        self.pt.quad(bottom=0, left=self.edges[:-1], right=self.edges[1:], top=self.hist, color="white", line_color="#3A5785")
-        self.h1 = self.pt.quad(bottom=0, left=self.edges[:-1], right=self.edges[1:], top=self.zeros, alpha=0.5, **line)
+        if background != []:
+            # self.backhist = np.log10(self.backhist)
+            # self.backhist[np.isnan(self.backhist)] = -1
+            # self.backhist[np.isinf(self.backhist)] = -1
+            self.pt.quad(bottom=ymin, left=self.edges[:-1], right=self.edges[1:], top=self.backhist, color="#A53F2B", line_color="#280004")
+        self.pt.quad(bottom=ymin, left=self.edges[:-1], right=self.edges[1:], top=self.hist, color="#F6BD60", line_color=mainptcolor,alpha=0.8)
+        self.h1 = self.pt.quad(bottom=ymin, left=self.edges[:-1], right=self.edges[1:], top=self.zeros, alpha=0.5, **line)
 
 pt1 = prophist(efficiency)
-pt1.plot_hist(x_range=(0,1),xlabel='efficiency')
+pt1.plot_hist(x_range=(0,1),xlabel='Efficiency',yscale='log')
 pb1 = prophist(completeness)
-pb1.plot_hist(x_range=(0,1),xlabel='completeness')
+pb1.plot_hist(x_range=(0,1),xlabel='Completeness',yscale='log')
 pt2 = prophist(ssil_found)
-pt2.plot_hist(x_range=(0,1),xlabel='found silhouette')
+pt2.plot_hist(x_range=(0,1),xlabel='Found Silhouette',yscale='log')
 pb2 = prophist(ssil_true)
-pb2.plot_hist(x_range=(0,1),xlabel='true silhouette')
+pb2.plot_hist(x_range=(0,1),xlabel='True Silhouette',yscale='log')
 pt3 = prophist(pcount,bins = np.logspace(0,3,20))
-pt3.plot_hist(xlabel='found size',xscale='log')
+pt3.plot_hist(xlabel='Found Size',xscale='log',yscale='log',background=tcount)
 pb3 = prophist(tcount[matchtlabs],bins = np.logspace(0,3,20))
-pb3.plot_hist(xlabel='true size',xscale='log')
+pb3.plot_hist(xlabel='Matched Size',xscale='log',yscale='log',background=tcount)
 
 props = [pt1,pb1,pt2,pb2,pt3,pb3]
 
-# # create the bottom histogram
-# bhist, bedges = np.histogram(completeness, bins=20)
-# bzeros = np.zeros(len(bedges)-1)
-# bmax = max(bhist)*1.1
-
-# pb = figure(toolbar_location=None, plot_width=300, plot_height=250, x_range=(0, 1),
-#             y_range=(0,bmax), min_border=10, y_axis_location="right",x_axis_label='completeness')
-# pb.ygrid.grid_line_color = None
-# #pb.xaxis.major_label_orientation = np.pi/4
-# pb.background_fill_color = "#fafafa"
-
-# pb.quad(bottom=0, left=bedges[:-1], right=bedges[1:], top=bhist, color="white", line_color="#3A5785")
-# bh1 = pb.quad(bottom=0, left=bedges[:-1], right=bedges[1:], top=bzeros, alpha=0.5, **LINE_ARGS)
-# bh2 = pb.quad(bottom=0, left=bedges[:-1], right=bedges[1:], top=bzeros, alpha=0.1, **LINE_ARGS)
-
 labels = list(data.keys())
 
-xradio = RadioButtonGroup(labels=labels, active=0)
-yradio = RadioButtonGroup(labels=labels, active=1)
+xradio = RadioButtonGroup(labels=labels, active=0,name='x-axis')
+yradio = RadioButtonGroup(labels=labels, active=1,name='y-axis')
+
+code = '''\
+object.visible = toggle.active
+'''
+linecb = CustomJS.from_coffeescript(code=code, args={})
+toggleline = Toggle(label="One-to-one line", button_type="success", active=True,callback=linecb)
+linecb.args = {'toggle': toggleline, 'object': l}
+
 #Spacer(width=50, height=100)
-layout = row(column(widgetbox(xradio),widgetbox(yradio)),column(p),column(pt1.pt,pb1.pt),column(pt2.pt,pb2.pt),column(pt3.pt,pb3.pt))
+layout = row(column(widgetbox(toggleline),widgetbox(xradio,name='x-axis'),
+                    widgetbox(yradio,name='y-axis')),
+             column(p,row(pt3.pt,pb3.pt)),column(pt1.pt,pb1.pt),column(pt2.pt,pb2.pt),)
 
 curdoc().add_root(layout)
 curdoc().title = "Selection Histogram"
@@ -150,18 +180,56 @@ def updatehist(attr, old, new):
         neg_inds = np.ones_like(efficiency, dtype=np.bool)
         neg_inds[inds] = False
         for i,prop in enumerate(props):
-            hist = np.histogram(prop.arr[inds],bins=prop.edges)[0]
-            loghist = np.log10(hist)
-            loghist[np.isnan(loghist)] = -1
-            loghist[np.isinf(loghist)] = -1
-            prop.h1.data_source.data['top'] = loghist
+            hist = (np.histogram(prop.arr[inds],bins=prop.edges)[0]).astype('float')
+            # loghist = np.log10(hist)
+            # loghist[np.isnan(loghist)] = -1
+            # loghist[np.isinf(loghist)] = -1
+            prop.h1.data_source.data['top'] = hist
 
 def updatex(new):
     r.data_source.data['x'] = data[labels[new]] 
+    xmin = np.min(r.data_source.data['x'])
+    xmax = np.max(r.data_source.data['x'])
+    ymin = np.min(r.data_source.data['y'])
+    ymax = np.max(r.data_source.data['y'])
+    xmin -= pad*xmax
+    xmax += pad*xmax
+    ymin -= pad*ymax
+    ymax += pad*ymax
+    minlim = np.min([xmin,ymin])
+    maxlim = np.max([xmax,ymax])
+    l.data_source.data['x'] = [minlim,maxlim]
+    l.data_source.data['y'] = [minlim,maxlim]
+    p.x_range.start = xmin
+    p.x_range.end = xmax
+    p.y_range.start = ymin
+    p.y_range.end = ymax
+    p.xaxis.axis_label = labels[new]
+    p.x_scale = scales[labels[new]]()
 
 def updatey(new):
     r.data_source.data['y'] = data[labels[new]]
+    xmin = np.min(r.data_source.data['x'])
+    xmax = np.max(r.data_source.data['x'])
+    ymin = np.min(r.data_source.data['y'])
+    ymax = np.max(r.data_source.data['y'])
+    xmin -= pad*xmax
+    xmax += pad*xmax
+    ymin -= pad*ymax
+    ymax += pad*ymax
+    minlim = np.min([xmin,ymin])
+    maxlim = np.max([xmax,ymax])
+    l.data_source.data['x'] = [minlim,maxlim]
+    l.data_source.data['y'] = [minlim,maxlim]
+    p.x_range.start = xmin
+    p.x_range.end = xmax
+    p.y_range.start = ymin
+    p.y_range.end = ymax
+    p.yaxis.axis_label = labels[new]
+    p.y_scale = scales[labels[new]]()
 
 r.data_source.on_change('selected', updatehist)
 xradio.on_click(updatex)
 yradio.on_click(updatey)
+
+#toggleline.on_click()
