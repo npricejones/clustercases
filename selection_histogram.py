@@ -19,45 +19,16 @@ from bokeh.plotting import figure, curdoc, ColumnDataSource
 from bokeh.io import show
 
 case = 7
-timestamp = '2018-06-29.20.20.13.729481'
+
 neighbours = 20
-pad = 0.1
-backgroundhist = True
 
-data = h5py.File('case{0}_{1}.hdf5'.format(case,timestamp),'r+')
 
-spec = data['spec'][:]
-abun = data['abun'][:]
-labels_true = data['labels_true'][:]
-spec_labels_pred = data['spec_labels_pred'][:]
-abun_labels_pred = data['abun_labels_pred'][:]
-spec_cbn = data['spec_cbn'][:]
-abun_cbn = data['abun_cbn'][:]
-ssil_found = data['spec_sil'][:]
-ssil_true = data['true_sil'][:]
-min_samples = data.attrs['spec_min'][:]
-eps = data.attrs['spec_eps'][:]
 
-# # #da = distance_metrics(abun)
-# ds = distance_metrics(spec)
 
-# # # #asil = da.silhouette(abun_labels_pred[0],k=neighbours)[0]
-# ssil_found = ds.silhouette(spec_labels_pred[0],k=neighbours)[0]
-# ssil_true = ds.silhouette(labels_true,k=neighbours)[0]
 
-# data['true_sil'] = ssil_true
-# data['spec_sil'] = ssil_found
 
-data.close()
 
-pcount,plabs = membercount(spec_labels_pred[0])
-pcount = pcount[1:]
 
-tcount,tlabs = membercount(labels_true)
-
-efficiency, completeness, plabs, matchtlabs = efficiency_completeness(spec_labels_pred[0],
-                                                                      labels_true,
-                                                                      minmembers=1)
 
 data={'Efficiency':efficiency,'Completeness':completeness,
       'Found Silhouette':ssil_found,'True Silhouette':ssil_true[matchtlabs],
@@ -69,90 +40,228 @@ resultpath = '/Users/nat/chemtag/clustercases/'
 
 files = glob.glob('*.hdf5')
 
-backcolor = "#FFF7EA" #cream
-unselectcolor = "#4C230A" #dark brown
-mainptcolor = "#A53F2B" #dark red
-mainhistcolor = "#F6BD60" #yellow
-outlinecolor = "#280004" #dark red black
+
 
 #case = AutocompleteInput(completions=)
 #timestamp = AutocompleteInput(completions=)
 
 zp = 1e-12
-sqside = 460
 
 # create the scatter plot
 panels = []
 
-p1 = figure(tools=TOOLS, plot_width=sqside, plot_height=sqside, min_border=10, min_border_left=50,
-           toolbar_location="above", x_axis_location='below', y_axis_location='left',
-           title="Linked Histograms",x_axis_label='Efficiency',y_axis_label='Completeness',
-           x_axis_type='linear',y_axis_type='linear',
-           x_range=(-pad,1+pad),y_range=(-pad,1+pad))
-p1.background_fill_color = backcolor
-p1.select(BoxSelectTool).select_every_mousemove = False
-p1.select(LassoSelectTool).select_every_mousemove = False
+class read_results(object):
 
-r1 = p1.scatter(efficiency, completeness, size=3, color=mainptcolor, alpha=0.6)
-minlim = np.min([np.min(r1.data_source.data['x']),np.min(r1.data_source.data['y'])])
-maxlim = np.max([np.max(r1.data_source.data['x']),np.max(r1.data_source.data['y'])])
-l1 = p1.line([minlim,maxlim],[minlim,maxlim],color=outlinecolor)
-r1.nonselection_glyph = Circle(fill_color=unselectcolor, fill_alpha=0.1, line_color=None)
+    def __init__(self,ind = 0, datatype = 'spec', case = 7, 
+                 timestamp = '2018-06-29.20.20.13.729481'):
+        self.ind = ind
+        self.dtype = datatype
+        self.case = case
+        self.timestamp = timestamp
 
-panels.append(Panel(child=p1,title='linear'))
+    def read_base_data(self,datatype=None):
+        self.data = h5py.File('case{0}_{1}.hdf5'.format(self.case,self.timestamp),'r+')
+        if datatype:
+            self.dtype = datatype
+        #self.chemspace = self.data['{0}'.format(self.dtype)][:]
+        #self.labels_true = self.data['labels_true'][:]
+        self.tsize = self.data['true_size'][:]
+        #self.labels_pred = self.data['{0}_labels_pred'.format(self.dtype)][:]
+        self.min_samples = self.data.attrs['{0}_min'.format(self.dtype)][:]
+        self.eps = self.data.attrs['{0}_eps'.format(self.dtype)][:]
 
-# NEEDS CHECK FOR <= 0 POINTS
+    def find_ind(self,eps,min_samples):
+        return np.where((eps==self.eps) & (min_samples==self.min_samples))
 
-p2 = figure(tools=TOOLS, plot_width=sqside, plot_height=sqside, min_border=10, min_border_left=50,
-           toolbar_location="above", x_axis_location='below', y_axis_location='left',
-           title="Linked Histograms",x_axis_label='Efficiency',y_axis_label='Completeness',
-           x_axis_type='log',y_axis_type='linear',
-           x_range=(zp,1+pad),y_range=(-pad,1+pad))
-p2.background_fill_color = backcolor
-p2.select(BoxSelectTool).select_every_mousemove = False
-p2.select(LassoSelectTool).select_every_mousemove = False
+    def read_run_data(self,ind=None, eps=None, min_samples=None, neighbours=20):
+        if ind:
+            self.ind = ind
+        if eps and min_samples:
+            self.ind = self.find_ind()[0][0]
+        eps = self.eps[self.ind]
+        min_samples = self.min_samples[self.ind]
+        self.tsil = self.data['{0}_true_sil_neigh{1}'.format(self.dtype,neighbours)][:]
+        self.fsil = self.data['{0}_found_sil_eps{1}_min{2}_neigh{3}'.format(self.dtype,eps,min_samples,neighbours)][:]
+        self.eff = self.data['{0}_eff_eps{1}_min{2}'.format(self.dtype,eps,min_samples)][:]
+        self.com = self.data['{0}_com_eps{1}_min{2}'.format(self.dtype,eps,min_samples)][:]
+        self.fsize = self.data['{0}_found_size_eps{1}_min{2}'.format(self.dtype,eps,min_samples)][:]
+        self.msize = self.data['{0}_match_size_eps{1}_min{2}'.format(self.dtype,eps,min_samples)][:]
+        self.datadict = {'Efficiency':self.eff,'Completeness':self.com,
+                         'Found Silhouette':self.fsil,'True Silhouette':self.tsil
+                         'Found Size':self.fsize,'Matched Size':self.msize}
 
-r2 = p2.scatter(efficiency, completeness, size=3, color=mainptcolor, alpha=0.6)
-minlim = np.min([np.min(r2.data_source.data['x']),np.min(r2.data_source.data['y'])])
-maxlim = np.max([np.max(r2.data_source.data['x']),np.max(r2.data_source.data['y'])])
-l2 = p2.line([minlim,maxlim],[minlim,maxlim],color=outlinecolor)
-r2.nonselection_glyph = Circle(fill_color=unselectcolor, fill_alpha=0.1, line_color=None)
+class display_result(read_results):
 
-panels.append(Panel(child=p2,title='semilogx'))
+    def __init__(self,ind = 0, datatype = 'spec', case = 7, 
+                 timestamp = '2018-06-29.20.20.13.729481', pad = 0.1, 
+                 backgroundhist = True,sqside = 460,tools=TOOLS):
+        read_results.__init__(self,ind=ind,datatype=datatype,case=case,
+                              timestamp=timestamp)
+        self.sqsize=sqside
+        self.backgroundhist=backgroundhist
+        self.tools=tools
+        self.set_colors()
+        self.read_base_data()
+        self.read_run_data()
 
-p3 = figure(tools=TOOLS, plot_width=sqside, plot_height=sqside, min_border=10, min_border_left=50,
-           toolbar_location="above", x_axis_location='below', y_axis_location='left',
-           title="Linked Histograms",x_axis_label='Efficiency',y_axis_label='Completeness',
-           x_axis_type='linear',y_axis_type='log',
-           x_range=(-pad,1+pad),y_range=(zp,1+pad))
-p3.background_fill_color = backcolor
-p3.select(BoxSelectTool).select_every_mousemove = False
-p3.select(LassoSelectTool).select_every_mousemove = False
+    def set_colors(self):
+        self.bcolor = "#FFF7EA" #cream
+        self.unscolor = "#4C230A" #dark brown
+        self.maincolor = "#A53F2B" #dark red
+        self.histcolor = "#F6BD60" #yellow
+        self.outcolor = "#280004" #dark red black
 
-r3 = p3.scatter(efficiency, completeness, size=3, color=mainptcolor, alpha=0.6)
-minlim = np.min([np.min(r3.data_source.data['x']),np.min(r3.data_source.data['y'])])
-maxlim = np.max([np.max(r3.data_source.data['x']),np.max(r3.data_source.data['y'])])
-l3 = p3.line([minlim,maxlim],[minlim,maxlim],color=outlinecolor)
-r3.nonselection_glyph = Circle(fill_color=unselectcolor, fill_alpha=0.1, line_color=None)
+    def center_plot(x,y):
+        panels = []
+        self.p1 = figure(tools=TOOLS, plot_width=sqside, plot_height=sqside, 
+                         min_border=10, min_border_left=50, toolbar_location="above", 
+                         x_axis_location='below', y_axis_location='left',
+                         title="Linked Histograms",
+                         x_axis_label='Efficiency',y_axis_label='Completeness',
+                         x_axis_type='linear',y_axis_type='linear',
+                         x_range=(-pad,1+pad),y_range=(-pad,1+pad))
+        self.p1.background_fill_color = self.bcolor
+        self.p1.select(BoxSelectTool).select_every_mousemove = False
+        self.p1.select(LassoSelectTool).select_every_mousemove = False
 
-panels.append(Panel(child=p3,title='semilogy'))
+        self.r1 = self.p1.scatter(efficiency, completeness, 
+                                  size=3, color=mainptcolor, alpha=0.6)
+        minlim = np.min([np.min(self.r1.data_source.data['x']),
+                         np.min(self.r1.data_source.data['y'])])
+        maxlim = np.max([np.max(self.r1.data_source.data['x']),
+                         np.max(self.r1.data_source.data['y'])])
+        self.l1 = self.p1.line([minlim,maxlim],[minlim,maxlim],
+                               color=self.outcolor)
+        self.r1.nonselection_glyph = Circle(fill_color=self.unscolor, 
+                                            fill_alpha=0.1, line_color=None)
 
-p4 = figure(tools=TOOLS, plot_width=sqside, plot_height=sqside, min_border=10, min_border_left=50,
-           toolbar_location="above", x_axis_location='below', y_axis_location='left',
-           title="Linked Histograms",x_axis_label='Efficiency',y_axis_label='Completeness',
-           x_axis_type='log',y_axis_type='log',
-           x_range=(zp,1+pad),y_range=(zp,1+pad))
-p4.background_fill_color = backcolor
-p4.select(BoxSelectTool).select_every_mousemove = False
-p4.select(LassoSelectTool).select_every_mousemove = False
+        panels.append(Panel(child=self.p1,title='linear'))
 
-r4 = p4.scatter(efficiency, completeness, size=3, color=mainptcolor, alpha=0.6)
-minlim = np.min([np.min(r4.data_source.data['x']),np.min(r4.data_source.data['y'])])
-maxlim = np.max([np.max(r4.data_source.data['x']),np.max(r4.data_source.data['y'])])
-l4 = p4.line([minlim,maxlim],[minlim,maxlim],color=outlinecolor)
-r4.nonselection_glyph = Circle(fill_color=unselectcolor, fill_alpha=0.1, line_color=None)
+        self.p2 = figure(tools=TOOLS, plot_width=sqside, plot_height=sqside, 
+                         min_border=10, min_border_left=50, toolbar_location="above", 
+                         x_axis_location='below', y_axis_location='left',
+                         title="Linked Histograms",
+                         x_axis_label='Efficiency',y_axis_label='Completeness',
+                         x_axis_type='log',y_axis_type='linear',
+                         x_range=(zp,1+pad),y_range=(-pad,1+pad))
+        self.p2.background_fill_color = self.bcolor
+        self.p2.select(BoxSelectTool).select_every_mousemove = False
+        self.p2.select(LassoSelectTool).select_every_mousemove = False
 
-panels.append(Panel(child=p4,title='log'))
+        self.r2 = self.p2.scatter(efficiency, completeness, 
+                                  size=3, color=mainptcolor, alpha=0.6)
+        minlim = np.min([np.min(self.r2.data_source.data['x']),
+                         np.min(self.r2.data_source.data['y'])])
+        maxlim = np.max([np.max(self.r2.data_source.data['x']),
+                         np.max(self.r2.data_source.data['y'])])
+        self.l2 = self.p2.line([minlim,maxlim],[minlim,maxlim],
+                               color=self.outcolor)
+        self.r2.nonselection_glyph = Circle(fill_color=self.unscolor, 
+                                            fill_alpha=0.1, line_color=None)
+
+        panels.append(Panel(child=self.p2,title='semilogx'))
+
+        self.p3 = figure(tools=TOOLS, plot_width=sqside, plot_height=sqside, 
+                         min_border=10, min_border_left=50, toolbar_location="above", 
+                         x_axis_location='below', y_axis_location='left',
+                         title="Linked Histograms",
+                         x_axis_label='Efficiency',y_axis_label='Completeness',
+                         x_axis_type='linear',y_axis_type='log',
+                         x_range=(-pad,1+pad),y_range=(zp,1+pad))
+        self.p3.background_fill_color = self.bcolor
+        self.p3.select(BoxSelectTool).select_every_mousemove = False
+        self.p3.select(LassoSelectTool).select_every_mousemove = False
+
+        self.r3 = self.p3.scatter(efficiency, completeness, 
+                                  size=3, color=mainptcolor, alpha=0.6)
+        minlim = np.min([np.min(self.r3.data_source.data['x']),
+                         np.min(self.r3.data_source.data['y'])])
+        maxlim = np.max([np.max(self.r3.data_source.data['x']),
+                         np.max(self.r3.data_source.data['y'])])
+        self.l3 = self.p3.line([minlim,maxlim],[minlim,maxlim],
+                               color=self.outcolor)
+        self.r3.nonselection_glyph = Circle(fill_color=self.unscolor, 
+                                            fill_alpha=0.1, line_color=None)
+
+        panels.append(Panel(child=self.p3,title='semilogy'))
+
+
+        self.p4 = figure(tools=TOOLS, plot_width=sqside, plot_height=sqside, 
+                         min_border=10, min_border_left=50, toolbar_location="above", 
+                         x_axis_location='below', y_axis_location='left',
+                         title="Linked Histograms",
+                         x_axis_label='Efficiency',y_axis_label='Completeness',
+                         x_axis_type='log',y_axis_type='log',
+                         x_range=(zp,1+pad),y_range=(zp,1+pad))
+        self.p4.background_fill_color = self.bcolor
+        self.p4.select(BoxSelectTool).select_every_mousemove = False
+        self.p4.select(LassoSelectTool).select_every_mousemove = False
+
+        self.r4 = self.p4.scatter(efficiency, completeness, 
+                                  size=3, color=mainptcolor, alpha=0.6)
+        minlim = np.min([np.min(self.r4.data_source.data['x']),
+                         np.min(self.r4.data_source.data['y'])])
+        maxlim = np.max([np.max(self.r4.data_source.data['x']),
+                         np.max(self.r4.data_source.data['y'])])
+        self.l4 = self.p4.line([minlim,maxlim],[minlim,maxlim],
+                               color=self.outcolor)
+        self.r4.nonselection_glyph = Circle(fill_color=self.unscolor, 
+                                            fill_alpha=0.1, line_color=None)
+
+        panels.append(Panel(child=self.p4,title='log'))
+
+        # NEEDS CHECK FOR <= 0 POINTS
+
+        p2 = figure(tools=TOOLS, plot_width=sqside, plot_height=sqside, min_border=10, min_border_left=50,
+                   toolbar_location="above", x_axis_location='below', y_axis_location='left',
+                   title="Linked Histograms",x_axis_label='Efficiency',y_axis_label='Completeness',
+                   x_axis_type='log',y_axis_type='linear',
+                   x_range=(zp,1+pad),y_range=(-pad,1+pad))
+        p2.background_fill_color = backcolor
+        p2.select(BoxSelectTool).select_every_mousemove = False
+        p2.select(LassoSelectTool).select_every_mousemove = False
+
+        r2 = p2.scatter(efficiency, completeness, size=3, color=mainptcolor, alpha=0.6)
+        minlim = np.min([np.min(r2.data_source.data['x']),np.min(r2.data_source.data['y'])])
+        maxlim = np.max([np.max(r2.data_source.data['x']),np.max(r2.data_source.data['y'])])
+        l2 = p2.line([minlim,maxlim],[minlim,maxlim],color=outlinecolor)
+        r2.nonselection_glyph = Circle(fill_color=unselectcolor, fill_alpha=0.1, line_color=None)
+
+        panels.append(Panel(child=p2,title='semilogx'))
+
+        p3 = figure(tools=TOOLS, plot_width=sqside, plot_height=sqside, min_border=10, min_border_left=50,
+                   toolbar_location="above", x_axis_location='below', y_axis_location='left',
+                   title="Linked Histograms",x_axis_label='Efficiency',y_axis_label='Completeness',
+                   x_axis_type='linear',y_axis_type='log',
+                   x_range=(-pad,1+pad),y_range=(zp,1+pad))
+        p3.background_fill_color = backcolor
+        p3.select(BoxSelectTool).select_every_mousemove = False
+        p3.select(LassoSelectTool).select_every_mousemove = False
+
+        r3 = p3.scatter(efficiency, completeness, size=3, color=mainptcolor, alpha=0.6)
+        minlim = np.min([np.min(r3.data_source.data['x']),np.min(r3.data_source.data['y'])])
+        maxlim = np.max([np.max(r3.data_source.data['x']),np.max(r3.data_source.data['y'])])
+        l3 = p3.line([minlim,maxlim],[minlim,maxlim],color=outlinecolor)
+        r3.nonselection_glyph = Circle(fill_color=unselectcolor, fill_alpha=0.1, line_color=None)
+
+        panels.append(Panel(child=p3,title='semilogy'))
+
+        p4 = figure(tools=TOOLS, plot_width=sqside, plot_height=sqside, min_border=10, min_border_left=50,
+                   toolbar_location="above", x_axis_location='below', y_axis_location='left',
+                   title="Linked Histograms",x_axis_label='Efficiency',y_axis_label='Completeness',
+                   x_axis_type='log',y_axis_type='log',
+                   x_range=(zp,1+pad),y_range=(zp,1+pad))
+        p4.background_fill_color = backcolor
+        p4.select(BoxSelectTool).select_every_mousemove = False
+        p4.select(LassoSelectTool).select_every_mousemove = False
+
+        r4 = p4.scatter(efficiency, completeness, size=3, color=mainptcolor, alpha=0.6)
+        minlim = np.min([np.min(r4.data_source.data['x']),np.min(r4.data_source.data['y'])])
+        maxlim = np.max([np.max(r4.data_source.data['x']),np.max(r4.data_source.data['y'])])
+        l4 = p4.line([minlim,maxlim],[minlim,maxlim],color=outlinecolor)
+        r4.nonselection_glyph = Circle(fill_color=unselectcolor, fill_alpha=0.1, line_color=None)
+
+        panels.append(Panel(child=p4,title='log'))
 
 plot_eps = 0.5
 
@@ -323,4 +432,5 @@ xradio.on_click(updateallx)
 yradio.on_click(updateally)
 selecteps.on_change
 
+data.close()
 #toggleline.on_click()

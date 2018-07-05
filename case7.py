@@ -292,17 +292,65 @@ plot = h5py.File('case7_{0}'.format(clusters.timestamps[0].decode('UTF-8')),'w')
 plot.attrs['sample'] = sample
 plot.attrs['abundancefac'] = 0
 plot.attrs['specfac'] = 0
-plot.attrs['fullfit'] = fullfitkeys
+plot.attrs['fullfit'] = [key.encode('utf8') for key in fullfitkeys]
 plot.attrs['crossfit'] = crossfitatms
 plot.attrs['spec_min'] = smin_samples
 plot.attrs['spec_eps'] = seps
 plot.attrs['abun_min'] = amin_samples
 plot.attrs['abun_eps'] = aeps
+plot['spec'] = spectra
+plot['abun'] = abundances
+plot['centers'] = centers
 plot['labels_true'] = labels_true
 plot['spec_labels_pred'] = spec_labels_pred
 plot['abun_labels_pred'] = abun_labels_pred
 plot['spec_cbn'] = spec_cbn
 plot['abun_cbn'] = cen_cbn
+
+tcount,tlabs = membercount(labels_true)
+plot['tsize'] = tcount
+
+neighbours = 20
+d = distance_metrics(spectra)
+
+plot['spec_true_sil_neigh{0}'.format(neighbours)] = d.silhouette(labels_true,k=neighbours)[0]
+
+for i in range(len(seps)):
+    efficiency, completeness, plabs, matchtlabs = efficiency_completeness(spec_labels_pred[i],
+                                                                          labels_true,
+                                                                          minmembers=1)
+    pcount,plabs = membercount(spec_labels_pred[0])
+    bad = np.where(plabs<0)
+    if len(bad[0])>0:
+        plabs = np.delete(plabs,bad[0][0])
+        pcount = np.delete(pcount,bad[0][0])
+    pcount = pcount[1:]
+    plot['spec_found_sil_eps{0}_min{1}_neigh{2}'.format(seps[i],smin_samples[i],neighbours) = d.silhouette(spec_labels_pred[i],k=neighbours)[0]
+    plot['spec_eff_eps{0}_min{1}'.format(seps[i],smin_samples[i]) = efficiency
+    plot['spec_com_eps{0}_min{1}'.format(seps[i],smin_samples[i]) = completeness
+    plot['spec_found_size_eps{0}_min{1}'.format(seps[i],smin_samples[i]) = pcount
+    plot['spec_match_size_eps{0}_min{1}'.format(seps[i],smin_samples[i]) = tcount[matchtlabs]
+
+d = distance_metrics(abundances)
+
+plot['spec_true_sil_neigh{0}'.format(neighbours)] = d.silhouette(labels_true,k=neighbours)[0]
+
+for i in range(len(seps)):
+    efficiency, completeness, plabs, matchtlabs = efficiency_completeness(abun_labels_pred[i],
+                                                                          labels_true,
+                                                                          minmembers=1)
+    pcount,plabs = membercount(abun_labels_pred[0])
+    bad = np.where(plabs<0)
+    if len(bad[0])>0:
+        plabs = np.delete(plabs,bad[0][0])
+        pcount = np.delete(pcount,bad[0][0])
+    pcount = pcount[1:]
+    plot['abun_found_sil_eps{0}_min{1}_neigh{2}'.format(aeps[i],amin_samples[i],neighbours) = d.silhouette(abun_labels_pred[i],k=neighbours)[0]
+    plot['abun_eff_eps{0}_min{1}'.format(aeps[i],amin_samples[i]) = efficiency
+    plot['abun_com_eps{0}_min{1}'.format(aeps[i],amin_samples[i]) = completeness
+    plot['abun_found_size_eps{0}_min{1}'.format(aeps[i],amin_samples[i]) = pcount
+    plot['abun_match_size_eps{0}_min{1}'.format(aeps[i],amin_samples[i]) = tcount[matchtlabs]
+
 
 plot.close()
 
