@@ -13,9 +13,8 @@ from clustering_stats import *
 
 from bokeh.layouts import row, column, widgetbox
 from bokeh.models import BoxSelectTool, LassoSelectTool, Spacer,CustomJS
-from bokeh.models.scales import LinearScale, LogScale
 from bokeh.models.glyphs import Circle
-from bokeh.models.widgets import Toggle,RadioButtonGroup,AutocompleteInput,Tabs, Panel
+from bokeh.models.widgets import Toggle,RadioButtonGroup,AutocompleteInput,Tabs, Panel, Select
 from bokeh.plotting import figure, curdoc, ColumnDataSource
 from bokeh.io import show
 
@@ -36,14 +35,18 @@ spec_cbn = data['spec_cbn'][:]
 abun_cbn = data['abun_cbn'][:]
 ssil_found = data['spec_sil'][:]
 ssil_true = data['true_sil'][:]
+min_samples = data.attrs['spec_min'][:]
+eps = data.attrs['spec_eps'][:]
 
-# #da = distance_metrics(abun)
+# # #da = distance_metrics(abun)
 # ds = distance_metrics(spec)
 
-# # #asil = da.silhouette(abun_labels_pred[0],k=neighbours)[0]
+# # # #asil = da.silhouette(abun_labels_pred[0],k=neighbours)[0]
+# ssil_found = ds.silhouette(spec_labels_pred[0],k=neighbours)[0]
 # ssil_true = ds.silhouette(labels_true,k=neighbours)[0]
 
 # data['true_sil'] = ssil_true
+# data['spec_sil'] = ssil_found
 
 data.close()
 
@@ -53,16 +56,12 @@ pcount = pcount[1:]
 tcount,tlabs = membercount(labels_true)
 
 efficiency, completeness, plabs, matchtlabs = efficiency_completeness(spec_labels_pred[0],
-                                                                 labels_true,
-                                                                 minmembers=1)
+                                                                      labels_true,
+                                                                      minmembers=1)
 
 data={'Efficiency':efficiency,'Completeness':completeness,
       'Found Silhouette':ssil_found,'True Silhouette':ssil_true[matchtlabs],
       'Found Size':pcount,'Matched Size':tcount[matchtlabs]}
-
-scales = {'Efficiency':LinearScale,'Completeness':LinearScale,
-          'Found Size':LogScale,'Found Silhouette':LinearScale,
-          'True Silhouette':LinearScale,'Matched Size':LogScale}
 
 TOOLS="pan,wheel_zoom,box_select,lasso_select,reset"
 
@@ -155,7 +154,7 @@ r4.nonselection_glyph = Circle(fill_color=unselectcolor, fill_alpha=0.1, line_co
 
 panels.append(Panel(child=p4,title='log'))
 
-eps = 0.5
+plot_eps = 0.5
 
 LINE_ARGS = dict(color=mainptcolor, line_color=None)
 
@@ -183,10 +182,10 @@ class prophist(object):
         if yscale=='linear':
             ymin = 0
         elif yscale=='log':
-            ymin=eps+eps/2.
-            self.hist[self.hist < eps] = eps
+            ymin=plot_eps+plot_eps/2.
+            self.hist[self.hist < plot_eps] = plot_eps
             if background != []:
-                self.backhist[self.backhist < eps] = eps
+                self.backhist[self.backhist < plot_eps] = plot_eps
         self.pt = figure(toolbar_location=None, plot_width=220, plot_height=200, x_range=x_range,
                     y_range=(ymin, self.hist_max), min_border=10, min_border_left=50, y_axis_location="right",
                     x_axis_label=xlabel,x_axis_type=xscale,y_axis_type=yscale)
@@ -222,21 +221,30 @@ labels = list(data.keys())
 xradio = RadioButtonGroup(labels=labels, active=0,name='x-axis')
 yradio = RadioButtonGroup(labels=labels, active=1,name='y-axis')
 
+streps = list(np.unique(eps).astype(str))
+strmin = list(np.unique(min_samples).astype(str))
+selecteps = Select(title="eps value", value=streps[0], options=streps)
+selectmin = Select(title="min_samples value", value=strmin[0], options=strmin)
+
 code = '''\
-object.visible = toggle.active
+object1.visible = toggle.active
+object2.visible = toggle.active
+object3.visible = toggle.active
+object4.visible = toggle.active
 '''
 linecb = CustomJS.from_coffeescript(code=code, args={})
 toggleline = Toggle(label="One-to-one line", button_type="success", active=True,callback=linecb)
-linecb.args = {'toggle': toggleline, 'object': l1}
+linecb.args = {'toggle': toggleline, 'object1': l1, 'object2': l2, 'object3': l3, 'object4': l4}
 
 #Spacer(width=50, height=100)
 layout = row(column(widgetbox(toggleline),widgetbox(xradio,name='x-axis'),
-                    widgetbox(yradio,name='y-axis')),
+                    widgetbox(yradio,name='y-axis'),widgetbox(selecteps),widgetbox(selectmin)),
              column(Tabs(tabs=panels,width=sqside),row(pt3.pt,pb3.pt)),column(pt1.pt,pb1.pt),column(pt2.pt,pb2.pt),)
 
 curdoc().add_root(layout)
 curdoc().title = "Selection Histogram"
 
+# add other tabs updating
 def updatehist(attr, old, new):
     inds = np.array(new['1d']['indices'])
     if len(inds) == 0 or len(inds) == len(efficiency):
@@ -252,50 +260,67 @@ def updatehist(attr, old, new):
             # loghist[np.isinf(loghist)] = -1
             prop.h1.data_source.data['top'] = hist
 
-def updatex(new):
-    r1.data_source.data['x'] = data[labels[new]] 
-    xmin = np.min(r1.data_source.data['x'])
-    xmax = np.max(r1.data_source.data['x'])
-    ymin = np.min(r1.data_source.data['y'])
-    ymax = np.max(r1.data_source.data['y'])
+ps = [p1,p2,p3,p4]
+rs = [r1,r2,r3,r4]
+ls = [l1,l2,l3,l4]
+def updateallx(new):
+    for r in rs:
+        r.data_source.data['x'] = data[labels[new]] 
+        xmin = np.min(r.data_source.data['x'])
+        xmax = np.max(r.data_source.data['x'])
+        ymin = np.min(r.data_source.data['y'])
+        ymax = np.max(r.data_source.data['y'])
     xmin -= pad*xmax
     xmax += pad*xmax
     ymin -= pad*ymax
     ymax += pad*ymax
     minlim = np.min([xmin,ymin])
     maxlim = np.max([xmax,ymax])
-    l1.data_source.data['x'] = [minlim,maxlim]
-    l1.data_source.data['y'] = [minlim,maxlim]
-    p1.x_range.start = xmin
-    p1.x_range.end = xmax
-    p1.y_range.start = ymin
-    p1.y_range.end = ymax
-    p1.xaxis.axis_label = labels[new]
-    p1.x_scale = scales[labels[new]]()
+    for l in ls:
+        l.data_source.data['x'] = [minlim,maxlim]
+        l.data_source.data['y'] = [minlim,maxlim]
+    for p in ps:
+        p.x_range.start = xmin
+        p.x_range.end = xmax
+        p.y_range.start = ymin
+        p.y_range.end = ymax
+        p.xaxis.axis_label = labels[new]
 
-def updatey(new):
-    r1.data_source.data['y'] = data[labels[new]]
-    xmin = np.min(r1.data_source.data['x'])
-    xmax = np.max(r1.data_source.data['x'])
-    ymin = np.min(r1.data_source.data['y'])
-    ymax = np.max(r1.data_source.data['y'])
+def updateally(new):
+    for r in rs:
+        r.data_source.data['y'] = data[labels[new]]
+        xmin = np.min(r.data_source.data['x'])
+        xmax = np.max(r.data_source.data['x'])
+        ymin = np.min(r.data_source.data['y'])
+        ymax = np.max(r.data_source.data['y'])
     xmin -= pad*xmax
     xmax += pad*xmax
     ymin -= pad*ymax
     ymax += pad*ymax
     minlim = np.min([xmin,ymin])
     maxlim = np.max([xmax,ymax])
-    l1.data_source.data['x'] = [minlim,maxlim]
-    l1.data_source.data['y'] = [minlim,maxlim]
-    p1.x_range.start = xmin
-    p1.x_range.end = xmax
-    p1.y_range.start = ymin
-    p1.y_range.end = ymax
-    p1.yaxis.axis_label = labels[new]
-    p1.y_scale = scales[labels[new]]()
+    for l in ls:
+        l.data_source.data['x'] = [minlim,maxlim]
+        l.data_source.data['y'] = [minlim,maxlim]
+    for p in ps:
+        p.x_range.start = xmin
+        p.x_range.end = xmax
+        p.y_range.start = ymin
+        p.y_range.end = ymax
+        p.yaxis.axis_label = labels[new]
+
+def updateeps(attr,old,new):
+    epsval = float(selecteps.value)
+    minval = float(selectmin.value)
+    runind = np.where((eps==epsval) & (min_samples==minval))[0]
+    efficiency, completeness, plabs, matchtlabs = efficiency_completeness(spec_labels_pred[runind],
+                                                                          labels_true,
+                                                                          minmembers=1)
+
 
 r1.data_source.on_change('selected', updatehist)
-xradio.on_click(updatex)
-yradio.on_click(updatey)
+xradio.on_click(updateallx)
+yradio.on_click(updateally)
+selecteps.on_change
 
 #toggleline.on_click()
