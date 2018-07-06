@@ -57,9 +57,9 @@ smin_samples = np.array([2,3])#,5,10])#,15,20,50])
 ssamples = len(smin_samples)
 seps = np.array([0.05,0.075,0.1])#,0.5,1.0])
 smin_samples = np.tile(smin_samples,len(seps))
-amin_samples = np.array([2,3,4,5,6])
+amin_samples = np.array([2,3])#,4,5,6])
 asamples = len(amin_samples)
-aeps = np.array([0.1,0.3,0.35,0.4,0.5])
+aeps = np.array([0.1,0.3,0.35])#,0.4,0.5])
 amin_samples = np.tile(amin_samples,len(aeps))
 aeps = np.repeat(aeps,asamples)
 seps = np.repeat(seps,ssamples)
@@ -287,17 +287,19 @@ datafile.close()
 spectra = specinfo.spectra
 centers = clusters.centerdata[0]
 
-plot = h5py.File('case7_{0}'.format(clusters.timestamps[0].decode('UTF-8')),'w')
+plot = h5py.File('case7_{0}.hdf5'.format(clusters.timestamps[0].decode('UTF-8')),'w')
 
 plot.attrs['sample'] = sample
 plot.attrs['abundancefac'] = 0
 plot.attrs['specfac'] = 0
-plot.attrs['fullfit'] = fullfitkeys
+plot.attrs['fullfit'] = [key.encode('utf8') for key in fullfitkeys]
 plot.attrs['crossfit'] = crossfitatms
 plot.attrs['spec_min'] = smin_samples
 plot.attrs['spec_eps'] = seps
 plot.attrs['abun_min'] = amin_samples
 plot.attrs['abun_eps'] = aeps
+plot['spec'] = spectra
+plot['abun'] = centers
 plot['labels_true'] = labels_true
 plot['spec_labels_pred'] = spec_labels_pred
 plot['abun_labels_pred'] = abun_labels_pred
