@@ -22,18 +22,6 @@ case = 7
 
 neighbours = 20
 
-
-
-
-
-
-
-
-
-data={'Efficiency':efficiency,'Completeness':completeness,
-      'Found Silhouette':ssil_found,'True Silhouette':ssil_true[matchtlabs],
-      'Found Size':pcount,'Matched Size':tcount[matchtlabs]}
-
 TOOLS="pan,wheel_zoom,box_select,lasso_select,reset"
 
 resultpath = '/Users/nat/chemtag/clustercases/'
@@ -45,19 +33,18 @@ typenames = {'spec':'spectra','abun':'abundances'}
 #case = AutocompleteInput(completions=)
 #timestamp = AutocompleteInput(completions=)
 
-zp = 1e-12
-
-# create the scatter plot
-panels = []
+zp = 1e-3
+plot_eps = 0.5
+padfac = 0.1
 
 def findextremes(x,y,pad=0.1):
     xmin = np.min(x)
     xmax = np.max(x)
     ymin = np.min(y)
     ymax = np.max(y)
-    xmin -= pad*xmax
+    xmin -= padfac*pad*xmax
     xmax += pad*xmax
-    ymin -= pad*ymax
+    ymin -= padfac*pad*ymax
     ymax += pad*ymax
     minlim = np.min([xmin,ymin])
     maxlim = np.max([xmax,ymax])
@@ -110,7 +97,7 @@ class prophist(object):
 class read_results(object):
 
     def __init__(self,ind = 0, datatype = 'spec', case = 7, 
-                 timestamp = '2018-06-29.20.20.13.729481'):
+                 timestamp = '2018-07-06.14.28.11.782906'):
         self.ind = ind
         self.dtype = datatype
         self.case = case
@@ -135,18 +122,19 @@ class read_results(object):
         if ind:
             self.ind = ind
         if eps and min_samples:
-            self.ind = self.find_ind()[0][0]
-        eps = self.eps[self.ind]
-        min_samples = self.min_samples[self.ind]
-        self.msil = self.tsil[matchtlabs]
-        self.fsil = self.data['{0}_found_sil_eps{1}_min{2}_neigh{3}'.format(self.dtype,eps,min_samples,neighbours)][:]
-        self.eff = self.data['{0}_eff_eps{1}_min{2}'.format(self.dtype,eps,min_samples)][:]
-        self.com = self.data['{0}_com_eps{1}_min{2}'.format(self.dtype,eps,min_samples)][:]
-        self.fsize = self.data['{0}_found_size_eps{1}_min{2}'.format(self.dtype,eps,min_samples)][:]
-        self.msize = self.tsize[matchtlabs]
+            self.ind = self.find_ind(eps,min_samples)[0][0]
+        self.epsval = self.eps[self.ind]
+        self.minval = self.min_samples[self.ind]
+        self.matchtlabs = self.data['{0}_match_tlabs_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
+        self.msil = self.tsil[self.matchtlabs]
+        self.fsil = self.data['{0}_found_sil_eps{1}_min{2}_neigh{3}'.format(self.dtype,self.epsval,self.minval,neighbours)][:]
+        self.eff = self.data['{0}_eff_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
+        self.com = self.data['{0}_com_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
+        self.fsize = self.data['{0}_found_size_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
+        self.msize = self.tsize[self.matchtlabs]
         self.numc = len(self.fsize)
         self.datadict = {'Efficiency':self.eff,'Completeness':self.com,
-                         'Found Silhouette':self.fsil,'True Silhouette':self.tsil
+                         'Found Silhouette':self.fsil,'True Silhouette':self.msil,
                          'Found Size':self.fsize,'Matched Size':self.msize}
 
 class display_result(read_results):
@@ -156,16 +144,20 @@ class display_result(read_results):
                  backgroundhist = True,sqside = 460,tools=TOOLS):
         read_results.__init__(self,ind=ind,datatype=datatype,case=case,
                               timestamp=timestamp)
-        self.sqsize=sqside
+        self.sqside=sqside
         self.backgroundhist=backgroundhist
         self.tools=tools
+        self.pad = pad
         self.set_colors()
+        self.layout_plots()
+        
+
+    def layout_plots(self):
         self.read_base_data()
         self.read_run_data()
         self.center_plot()
         self.histograms()
         self.buttons()
-        #Spacer(width=50, height=100)
         layout = row(column(widgetbox(self.toggleline),widgetbox(self.xradio,name='x-axis'),
                             widgetbox(self.yradio,name='y-axis'),widgetbox(self.selecteps),widgetbox(self.selectmin)),
                      column(Tabs(tabs=self.panels,width=self.sqside),row(self.pt3.pt,self.pb3.pt)),
@@ -174,8 +166,7 @@ class display_result(read_results):
 
         curdoc().add_root(layout)
         curdoc().title = "DBSCAN on {0} with eps={1}, min_samples={2}".format(typenames[self.dtype],
-                                                                              self.eps[self.ind],
-                                                                              self.min_samples[self.ind])
+                                                                              self.epsval,self.minval)
 
     def set_colors(self):
         self.bcolor = "#FFF7EA" #cream
@@ -188,18 +179,18 @@ class display_result(read_results):
     def center_plot(self,x=None,y=None):
         self.panels = []
         if not x:
-            x = self.efficiency
+            x = self.eff
             xlabel = 'Efficiency'
         elif x:
             xlabel = x
             x = self.datadict[xlabel]
         if not y:
-            y = self.completeness
+            y = self.com
             ylabel = 'Completeness'
         elif y:
             ylabel = y
             y = self.datadict[ylabel]
-        axlims,lineparams = findextremes(x,y)
+        axlims,lineparams = findextremes(x,y,pad=self.pad)
         xmin,xmax,ymin,ymax=axlims
         minlim,maxlim = lineparams
 
@@ -208,18 +199,20 @@ class display_result(read_results):
         else:
             lminlim = minlim
 
+        self.source = ColumnDataSource(data=dict(x=x,y=y))
+
         # LINEAR TAB
-        self.p1 = figure(tools=TOOLS, plot_width=sqside, plot_height=sqside, 
+        self.p1 = figure(tools=TOOLS, plot_width=self.sqside, plot_height=self.sqside, 
                          min_border=10, min_border_left=50, toolbar_location="above", 
                          x_axis_location='below', y_axis_location='left',
                          x_axis_label=xlabel,y_axis_label=ylabel,
                          x_axis_type='linear',y_axis_type='linear',
-                         x_range=(xmin,xmax),y_range=(xmin,xmax))
+                         x_range=(xmin,xmax),y_range=(ymin,ymax))
         self.p1.background_fill_color = self.bcolor
         self.p1.select(BoxSelectTool).select_every_mousemove = False
         self.p1.select(LassoSelectTool).select_every_mousemove = False
 
-        self.r1 = self.p1.scatter(x, y, size=3, color=mainptcolor, alpha=0.6)
+        self.r1 = self.p1.scatter(x='x', y='y', source=self.source, size=3, color=self.maincolor, alpha=0.6)
         self.l1 = self.p1.line(lineparams,lineparams,
                                color=self.outcolor)
         self.r1.nonselection_glyph = Circle(fill_color=self.unscolor, 
@@ -233,7 +226,7 @@ class display_result(read_results):
             slxmin = zp
         else:
             slxmin = xmin
-        self.p2 = figure(tools=TOOLS, plot_width=sqside, plot_height=sqside, 
+        self.p2 = figure(tools=TOOLS, plot_width=self.sqside, plot_height=self.sqside, 
                          min_border=10, min_border_left=50, toolbar_location="above", 
                          x_axis_location='below', y_axis_location='left',
                          x_axis_label=xlabel,y_axis_label=ylabel,
@@ -243,9 +236,9 @@ class display_result(read_results):
         self.p2.select(BoxSelectTool).select_every_mousemove = False
         self.p2.select(LassoSelectTool).select_every_mousemove = False
 
-        self.r2 = self.p2.scatter(x, y, size=3, color=mainptcolor, alpha=0.6)
+        self.r2 = self.p2.scatter(x='x', y='y', source=self.source, size=3, color=self.maincolor, alpha=0.6)
     
-        self.l2 = self.p2.line([lminlim,maxlim],[lminlim,maxlim],
+        self.l2 = self.p2.line(np.logspace(np.log10(lminlim),np.log10(maxlim),100),np.logspace(np.log10(lminlim),np.log10(maxlim),100),
                                color=self.outcolor)
         self.r2.nonselection_glyph = Circle(fill_color=self.unscolor, 
                                             fill_alpha=0.1, line_color=None)
@@ -258,7 +251,7 @@ class display_result(read_results):
             slymin = zp
         else:
             slymin = ymin
-        self.p3 = figure(tools=TOOLS, plot_width=sqside, plot_height=sqside, 
+        self.p3 = figure(tools=TOOLS, plot_width=self.sqside, plot_height=self.sqside, 
                          min_border=10, min_border_left=50, toolbar_location="above", 
                          x_axis_location='below', y_axis_location='left',
                          x_axis_label=xlabel,y_axis_label=ylabel,
@@ -268,9 +261,9 @@ class display_result(read_results):
         self.p3.select(BoxSelectTool).select_every_mousemove = False
         self.p3.select(LassoSelectTool).select_every_mousemove = False
 
-        self.r3 = self.p3.scatter(x, y, size=3, color=mainptcolor, alpha=0.6)
+        self.r3 = self.p3.scatter(x='x', y='y', source=self.source, size=3, color=self.maincolor, alpha=0.6)
   
-        self.l3 = self.p3.line([lminlim,maxlim],[lminlim,maxlim],
+        self.l3 = self.p3.line(np.logspace(np.log10(lminlim),np.log10(maxlim),100),np.logspace(np.log10(lminlim),np.log10(maxlim),100),
                                color=self.outcolor)
         self.r3.nonselection_glyph = Circle(fill_color=self.unscolor, 
                                             fill_alpha=0.1, line_color=None)
@@ -279,7 +272,7 @@ class display_result(read_results):
 
 
         # LOG PLOT
-        self.p4 = figure(tools=TOOLS, plot_width=sqside, plot_height=sqside, 
+        self.p4 = figure(tools=TOOLS, plot_width=self.sqside, plot_height=self.sqside, 
                          min_border=10, min_border_left=50, toolbar_location="above", 
                          x_axis_location='below', y_axis_location='left',
                          x_axis_label=xlabel,y_axis_label=ylabel,
@@ -289,7 +282,7 @@ class display_result(read_results):
         self.p4.select(BoxSelectTool).select_every_mousemove = False
         self.p4.select(LassoSelectTool).select_every_mousemove = False
 
-        self.r4 = self.p4.scatter(x, y, size=3, color=mainptcolor, alpha=0.6)
+        self.r4 = self.p4.scatter(x='x', y='y', source=self.source, size=3, color=self.maincolor, alpha=0.6)
         self.l4 = self.p4.line([lminlim,maxlim],[lminlim,maxlim],
                                color=self.outcolor)
         self.r4.nonselection_glyph = Circle(fill_color=self.unscolor, 
@@ -297,9 +290,9 @@ class display_result(read_results):
 
         self.panels.append(Panel(child=self.p4,title='log'))
 
-        self.ps = [p1,p2,p3,p4]
-        self.rs = [r1,r2,r3,r4]
-        self.ls = [l1,l2,l3,l4]
+        self.ps = [self.p1,self.p2,self.p3,self.p4]
+        self.rs = [self.r1,self.r2,self.r3,self.r4]
+        self.ls = [self.l1,self.l2,self.l3,self.l4]
 
         # NEEDS CHECK FOR <= 0 POINTS
 
@@ -310,8 +303,8 @@ class display_result(read_results):
         self.pb1.plot_hist(x_range=(0,1),xlabel='Completeness',yscale='log')
         self.pt2 = prophist(self.fsil,bins=np.linspace(-1,1,40))
         self.pt2.plot_hist(x_range=(0,1),xlabel='Found Silhouette',yscale='log')
-        self.pb2 = prophist(self.msil,self.,bins=np.linspace(-1,1,40),background=self.tsil)
-        self.pb2.plot_hist(x_range=(0,1),xlabel='True Silhouette',yscale='log')
+        self.pb2 = prophist(self.msil,bins=np.linspace(-1,1,40))
+        self.pb2.plot_hist(x_range=(0,1),xlabel='Matched Silhouette',yscale='log',background=self.tsil)
         self.pt3 = prophist(self.fsize,bins = np.logspace(0,3,20))
         self.pt3.plot_hist(xlabel='Found Size',xscale='log',yscale='log',background=self.tsize)
         self.pb3 = prophist(self.msize,bins = np.logspace(0,3,20))
@@ -327,9 +320,9 @@ class display_result(read_results):
 
         streps = list(np.unique(self.eps).astype(str))
         strmin = list(np.unique(self.min_samples).astype(str))
-        self.selecteps = Select(title="eps value", value=str(self.eps[self.ind]), 
+        self.selecteps = Select(title="eps value", value=str(self.epsval), 
                            options=streps)
-        self.selectmin = Select(title="min_samples value", value=str(self.min_samples[self.ind]), 
+        self.selectmin = Select(title="min_samples value", value=str(self.minval), 
                            options=strmin)
 
         code = '''\
@@ -350,13 +343,13 @@ class display_result(read_results):
         else:
             neg_inds = np.ones_like(self.eff, dtype=np.bool)
             neg_inds[inds] = False
-            for i,prop in enumerate(props):
+            for i,prop in enumerate(self.proplist):
                 hist = (np.histogram(prop.arr[inds],bins=prop.edges)[0]).astype('float')
                 prop.h1.data_source.data['top'] = hist
 
-    def updateallx(new):
+    def updateallx(self,new):
         newx = self.datadict[self.labels[new]]
-        axlims,lineparams = findextremes(newx,self.r1.data_source.data['y'])
+        axlims,lineparams = findextremes(newx,self.r1.data_source.data['y'],pad=self.pad)
         xmin,xmax,ymin,ymax=axlims
         minlim,maxlim = lineparams
 
@@ -370,39 +363,39 @@ class display_result(read_results):
         else:
             slxmin = xmin
 
-        p1.x_range.start=xmin
-        p1.x_range.end=xmax
+        self.p1.x_range.start=xmin
+        self.p1.x_range.end=xmax
 
-        p2.x_range.start = slxmin
-        p2.x_range.end = xmax
+        self.p2.x_range.start = slxmin
+        self.p2.x_range.end = xmax
 
-        p3.x_range.start = xmin
-        p3.x_range.end = xmax
+        self.p3.x_range.start = xmin
+        self.p3.x_range.end = xmax
 
-        p4.x_range.start = slxmin
-        p4.x_range.end = xmax
+        self.p4.x_range.start = slxmin
+        self.p4.x_range.end = xmax
 
         for r in self.rs:
             r.data_source.data['x'] = newx 
 
-        l1.data_source.data['x'] = lineparams
-        l1.data_source.data['y'] = lineparams
+        self.l1.data_source.data['x'] = lineparams
+        self.l1.data_source.data['y'] = lineparams
 
-        l2.data_source.data['x'] = [lminlim,maxlim]
-        l2.data_source.data['y'] = lineparams
+        self.l2.data_source.data['x'] = np.logspace(np.log10(lminlim),np.log10(maxlim),100)
+        self.l2.data_source.data['y'] = np.logspace(np.log10(lminlim),np.log10(maxlim),100)
 
-        l3.data_source.data['x'] = lineparams
-        l3.data_source.data['y'] = [lminlim,maxlim]
+        self.l3.data_source.data['x'] = np.logspace(np.log10(lminlim),np.log10(maxlim),100)
+        self.l3.data_source.data['y'] = np.logspace(np.log10(lminlim),np.log10(maxlim),100)
 
-        l4.data_source.data['x'] = [lminlim,maxlim]
-        l4.data_source.data['y'] = [lminlim,maxlim]
+        self.l4.data_source.data['x'] = [lminlim,maxlim]
+        self.l4.data_source.data['y'] = [lminlim,maxlim]
     
         for p in self.ps:
             p.xaxis.axis_label = self.labels[new]
 
-    def updateallx(new):
+    def updateally(self,new):
         newy = self.datadict[self.labels[new]]
-        axlims,lineparams = findextremes(self.r1.data_source.data['x'],newy)
+        axlims,lineparams = findextremes(self.r1.data_source.data['x'],newy,pad=self.pad)
         xmin,xmax,ymin,ymax=axlims
         minlim,maxlim = lineparams
 
@@ -416,49 +409,58 @@ class display_result(read_results):
         else:
             slymin = xmin
 
-        p1.y_range.start=ymin
-        p1.y_range.end=ymax
+        self.p1.y_range.start=ymin
+        self.p1.y_range.end=ymax
 
-        p2.y_range.start = ymin
-        p2.y_range.end = ymax
+        self.p2.y_range.start = ymin
+        self.p2.y_range.end = ymax
 
-        p3.y_range.start = slymin
-        p3.y_range.end = ymax
+        self.p3.y_range.start = slymin
+        self.p3.y_range.end = ymax
 
-        p4.y_range.start = slymin
-        p4.y_range.end = ymax
+        self.p4.y_range.start = slymin
+        self.p4.y_range.end = ymax
 
         for r in self.rs:
             r.data_source.data['y'] = newy 
 
-        l1.data_source.data['x'] = lineparams
-        l1.data_source.data['y'] = lineparams
+        self.l1.data_source.data['x'] = lineparams
+        self.l1.data_source.data['y'] = lineparams
 
-        l2.data_source.data['x'] = [lminlim,maxlim]
-        l2.data_source.data['y'] = lineparams
+        self.l2.data_source.data['x'] = np.logspace(np.log10(lminlim),np.log10(maxlim),100)
+        self.l2.data_source.data['y'] = np.logspace(np.log10(lminlim),np.log10(maxlim),100)
 
-        l3.data_source.data['x'] = lineparams
-        l3.data_source.data['y'] = [lminlim,maxlim]
+        self.l3.data_source.data['x'] = np.logspace(np.log10(lminlim),np.log10(maxlim),100)
+        self.l3.data_source.data['y'] = np.logspace(np.log10(lminlim),np.log10(maxlim),100)
 
-        l4.data_source.data['x'] = [lminlim,maxlim]
-        l4.data_source.data['y'] = [lminlim,maxlim]
+        self.l4.data_source.data['x'] = [lminlim,maxlim]
+        self.l4.data_source.data['y'] = [lminlim,maxlim]
     
         for p in self.ps:
             p.yaxis.axis_label = self.labels[new]
 
-
-plot_eps = 0.5
-def updateeps(attr,old,new):
-    epsval = float(selecteps.value)
-    minval = float(selectmin.value)
-    runind = np.where((eps==epsval) & (min_samples==minval))[0]
+    def updatedata_eps(self,attr,old,new):
+        self.read_run_data(ind=None, eps=float(new), min_samples=self.minval, neighbours=20)
+        self.layout_plots()
 
 
+starter = display_result(timestamp='2018-07-06.14.39.08.320706',pad=0.1)
 
-r1.data_source.on_change('selected', updatehist)
-xradio.on_click(updateallx)
-yradio.on_click(updateally)
-selecteps.on_change
+# plot_eps = 0.5
+# def updateeps(attr,old,new):
+#     epsval = float(selecteps.value)
+#     minval = float(selectmin.value)
+#     runind = np.where((eps==epsval) & (min_samples==minval))[0]
 
-data.close()
+
+
+starter.r1.data_source.on_change('selected', starter.updatehist)
+starter.r2.data_source.on_change('selected', starter.updatehist)
+starter.r3.data_source.on_change('selected', starter.updatehist)
+starter.r4.data_source.on_change('selected', starter.updatehist)
+starter.xradio.on_click(starter.updateallx)
+starter.yradio.on_click(starter.updateally)
+#starter.selecteps.on_change(starter.updatedata_eps)
+
+# data.close()
 #toggleline.on_click()
