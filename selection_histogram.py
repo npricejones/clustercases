@@ -22,16 +22,11 @@ case = 7
 
 neighbours = 20
 
-TOOLS="pan,wheel_zoom,box_select,lasso_select,reset,poly_select,save"
+TOOLS="pan,wheel_zoom,box_select,lasso_select,reset,save"
 
 resultpath = '/Users/nat/chemtag/clustercases/'
 
-files = glob.glob('*.hdf5')
-
 typenames = {'spec':'spectra','abun':'abundances'}
-
-#case = AutocompleteInput(completions=)
-#timestamp = AutocompleteInput(completions=)
 
 zp = 1e-3
 plot_eps = 0.5
@@ -134,7 +129,7 @@ class read_results(object):
         self.msize = self.tsize[self.matchtlabs]
         self.numc = len(self.fsize)
         self.datadict = {'Efficiency':self.eff,'Completeness':self.com,
-                         'Found Silhouette':self.fsil,'True Silhouette':self.msil,
+                         'Found Silhouette':self.fsil,'Matched Silhouette':self.msil,
                          'Found Size':self.fsize,'Matched Size':self.msize}
 
 class display_result(read_results):
@@ -158,7 +153,8 @@ class display_result(read_results):
         self.center_plot()
         self.histograms()
         self.buttons()
-        layout = row(column(widgetbox(self.toggleline),widgetbox(self.xradio,name='x-axis'),
+        layout = row(column(widgetbox(self.selectcase),widgetbox(self.selecttime),
+                            widgetbox(self.toggleline),widgetbox(self.xradio,name='x-axis'),
                             widgetbox(self.yradio,name='y-axis'),widgetbox(self.selecteps),widgetbox(self.selectmin)),
                      column(Tabs(tabs=self.panels,width=self.sqside),row(self.pt3.pt,self.pb3.pt)),
                      column(self.pt1.pt,self.pb1.pt),
@@ -313,6 +309,12 @@ class display_result(read_results):
 
 
     def buttons(self):
+        files = np.array([g.split('_') for g in glob.glob('*.hdf5')])
+        cases = [n.split('case')[1] for n in np.unique(files[:,0])]
+        times = [n.split('.')[0] for n in np.unique(files[:,1])]
+        self.selectcase = Select(title='case',value=str(self.case),options=cases)
+        self.selecttime = Select(title='timestamp',value=str(self.timestamp),options=times)
+
         self.labels = list(self.datadict.keys())
 
         self.xradio = RadioButtonGroup(labels=self.labels, active=0,name='x-axis')
@@ -444,7 +446,7 @@ class display_result(read_results):
         self.layout_plots()
 
 
-starter = display_result(timestamp='2018-07-06.14.39.08.320706',pad=0.1)
+starter = display_result(timestamp='2018-07-06.18.57.14.84656',pad=0.1)
 
 # plot_eps = 0.5
 # def updateeps(attr,old,new):
