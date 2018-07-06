@@ -22,7 +22,7 @@ case = 7
 
 neighbours = 20
 
-TOOLS="pan,wheel_zoom,box_select,lasso_select,reset"
+TOOLS="pan,wheel_zoom,box_select,lasso_select,reset,poly_select,save"
 
 resultpath = '/Users/nat/chemtag/clustercases/'
 
