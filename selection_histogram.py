@@ -216,10 +216,10 @@ source.change.emit();
         self.r4.data_source.on_change('selected', self.updatehist)
         self.xradio.on_click(self.updateallx)
         self.yradio.on_click(self.updateally)
-        self.p1.on_event(events.Reset,self.resethist)
-        self.p2.on_event(events.Reset,self.resethist)
-        self.p3.on_event(events.Reset,self.resethist)
-        self.p4.on_event(events.Reset,self.resethist)
+        self.p1.on_event(events.Reset,self.resetplots)
+        self.p2.on_event(events.Reset,self.resetplots)
+        self.p3.on_event(events.Reset,self.resetplots)
+        self.p4.on_event(events.Reset,self.resetplots)
         curdoc().add_root(self.layout)
         curdoc().title = "DBSCAN on {0} with eps={1}, min_samples={2}".format(typenames[self.dtype], 
                                                                               self.epsval,self.minval)
@@ -385,10 +385,10 @@ source.change.emit();
         self.toggleline = Toggle(label="One-to-one line", button_type="success", active=True,callback=linecb)
         linecb.args = {'toggle': self.toggleline, 'object1': self.l1, 'object2': self.l2, 'object3': self.l3, 'object4': self.l4}
 
-    def resethist(self,attrs):
-        print('Resetting histograms')
+    def resetplots(self,attrs):
         for i,prop in enumerate(self.proplist):
             prop.h1.data_source.data['top'] = prop.zeros
+        self.updateaxlim()
 
     def updatehist(self, attr, old, new):
         inds = np.array(new['1d']['indices'])
