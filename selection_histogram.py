@@ -28,7 +28,8 @@ resultpath = '/Users/nat/chemtag/clustercases/'
 
 typenames = {'spec':'spectra','abun':'abundances'}
 
-zp = 1e-3
+zp = {'Efficiency':5e-3,'Completeness':5e-3,'Found Silhouette':5e-3,'True Silhouette':5e-3,'Found Size':0.5,'Matched Size':0.5}
+lzp=1e-3
 plot_eps = 0.5
 padfac = 0.1
 
@@ -153,7 +154,6 @@ class display_result(read_results):
         """
         Makes custom JavaScript callback from bokeh so you can easily swap source dictionaries.
         """
-    
         varstr ="""
 var f = cb_obj.value;
 var data = source.data;
@@ -161,12 +161,14 @@ var data = source.data;
         for i in range(len(self.eps)):
             varstr+='\nvar data{0} = source{0}.data'.format(i)
 
-        actstr = '\n'
+        actstr = """
+for (key in data0)
+        """
 
         for i in range(len(self.eps)):
             if i != len(self.eps)-1:
                 actstr+="""
-if (f == "source{0}") {{
+if (f == "eps={1}, min={2}") {{
 for (key in data{0}) {{
     data[key] = [];
     for (i=0;i<data{0}[key].length;i++){{
@@ -174,10 +176,10 @@ for (key in data{0}) {{
     }}
 }}
 }}
-            """.format(i)
+            """.format(i,self.eps[i],self.min_samples[i])
             elif i == len(self.eps)-1: # has a semicolon 
                 actstr+="""
-if (f == "source{0}") {{
+if (f == "eps={1}, min={2}") {{
 for (key in data{0}) {{
     data[key] = [];
     for (i=0;i<data{0}[key].length;i++){{
@@ -185,8 +187,10 @@ for (key in data{0}) {{
     }}
 }}
 }};
-            """.format(i)
-        exestr = 'source.change.emit();'
+            """.format(i,self.eps[i],self.min_samples[i])
+        exestr = """
+source.change.emit();
+"""
         self.callbackstr = varstr+actstr+exestr
 
 
@@ -232,7 +236,7 @@ for (key in data{0}) {{
         minlim,maxlim = lineparams
 
         if minlim < 0:
-            lminlim = zp
+            lminlim = lzp
         else:
             lminlim = minlim
 
@@ -258,7 +262,7 @@ for (key in data{0}) {{
 
         # SEMILOGX TAB
         if xmin < 0:
-            slxmin = zp
+            slxmin = zp[xlabel]
         else:
             slxmin = xmin
         self.p2 = figure(tools=TOOLS, plot_width=self.sqside, plot_height=self.sqside, 
@@ -283,7 +287,7 @@ for (key in data{0}) {{
 
         # SEMILOGY TAB
         if ymin < 0:
-            slymin = zp
+            slymin = zp[ylabel]
         else:
             slymin = ymin
         self.p3 = figure(tools=TOOLS, plot_width=self.sqside, plot_height=self.sqside, 
@@ -391,12 +395,12 @@ for (key in data{0}) {{
         minlim,maxlim = lineparams
 
         if minlim < 0:
-            lminlim = zp
+            lminlim = lzp
         else:
             lminlim = minlim
 
         if xmin < 0:
-            slxmin = zp
+            slxmin = zp[self.labels[new]]
         else:
             slxmin = xmin
 
@@ -437,12 +441,12 @@ for (key in data{0}) {{
         minlim,maxlim = lineparams
 
         if minlim < 0:
-            lminlim = zp
+            lminlim = lzp
         else:
             lminlim = minlim
 
         if ymin < 0:
-            slymin = zp
+            slymin = zp[self.labels[new]]
         else:
             slymin = xmin
 
