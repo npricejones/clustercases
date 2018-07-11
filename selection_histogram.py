@@ -17,6 +17,7 @@ from bokeh.models.glyphs import Circle
 from bokeh.models.widgets import Toggle,RadioButtonGroup,AutocompleteInput,Tabs, Panel, Select
 from bokeh.plotting import figure, curdoc, ColumnDataSource, reset_output
 from bokeh.io import show
+from bokeh import events
 
 case = 7
 
@@ -28,7 +29,7 @@ resultpath = '/Users/nat/chemtag/clustercases/'
 
 typenames = {'spec':'spectra','abun':'abundances'}
 
-zp = {'Efficiency':5e-3,'Completeness':5e-3,'Found Silhouette':5e-3,'True Silhouette':5e-3,'Found Size':0.5,'Matched Size':0.5}
+zp = {'Efficiency':5e-3,'Completeness':5e-3,'Found Silhouette':5e-3,'Matched Silhouette':5e-3,'Found Size':0.5,'Matched Size':0.5}
 lzp=1e-3
 plot_eps = 0.5
 padfac = 0.1
@@ -207,10 +208,18 @@ source.change.emit();
                  column(Tabs(tabs=self.panels,width=self.sqside),row(self.pt3.pt,self.pb3.pt)),
                  column(self.pt1.pt,self.pb1.pt),
                  column(self.pt2.pt,self.pb2.pt),)
-        # for r in self.rs:
-        #     r.data_source.on_change('selected', self.updatehist)
-        # self.xradio.on_click(self.updateallx)
-        # self.yradio.on_click(self.updateally)
+
+        # Activate buttons
+        self.r1.data_source.on_change('selected', self.updatehist)
+        self.r2.data_source.on_change('selected', self.updatehist)
+        self.r3.data_source.on_change('selected', self.updatehist)
+        self.r4.data_source.on_change('selected', self.updatehist)
+        self.xradio.on_click(self.updateallx)
+        self.yradio.on_click(self.updateally)
+        self.p1.on_event(events.Reset,self.resethist)
+        self.p2.on_event(events.Reset,self.resethist)
+        self.p3.on_event(events.Reset,self.resethist)
+        self.p4.on_event(events.Reset,self.resethist)
         curdoc().add_root(self.layout)
         curdoc().title = "DBSCAN on {0} with eps={1}, min_samples={2}".format(typenames[self.dtype], 
                                                                               self.epsval,self.minval)
@@ -376,6 +385,11 @@ source.change.emit();
         self.toggleline = Toggle(label="One-to-one line", button_type="success", active=True,callback=linecb)
         linecb.args = {'toggle': self.toggleline, 'object1': self.l1, 'object2': self.l2, 'object3': self.l3, 'object4': self.l4}
 
+    def resethist(self,attrs):
+        print('Resetting histograms')
+        for i,prop in enumerate(self.proplist):
+            prop.h1.data_source.data['top'] = prop.zeros
+
     def updatehist(self, attr, old, new):
         inds = np.array(new['1d']['indices'])
         if len(inds) == 0 or len(inds) == self.numc:
@@ -388,9 +402,8 @@ source.change.emit();
                 hist = (np.histogram(prop.arr[inds],bins=prop.edges)[0]).astype('float')
                 prop.h1.data_source.data['top'] = hist
 
-    def updateallx(self,new):
-        newx = self.source.data[self.labels[new]]
-        axlims,lineparams = findextremes(newx,self.r1.data_source.data[self.labels[self.yradio.active]],pad=self.pad)
+    def updateaxlim(self):
+        axlims,lineparams = findextremes(self.r1.data_source.data[self.labels[self.xradio.active]],self.r1.data_source.data[self.labels[self.yradio.active]],pad=self.pad)
         xmin,xmax,ymin,ymax=axlims
         minlim,maxlim = lineparams
 
@@ -400,24 +413,34 @@ source.change.emit();
             lminlim = minlim
 
         if xmin < 0:
-            slxmin = zp[self.labels[new]]
+            slxmin = zp[self.labels[self.xradio.active]]
         else:
             slxmin = xmin
 
+        if ymin < 0:
+            slymin = zp[self.labels[self.yradio.active]]
+        else:
+            slymin = ymin
+
         self.p1.x_range.start=xmin
         self.p1.x_range.end=xmax
+        self.p1.y_range.start=ymin
+        self.p1.y_range.end=ymax
 
         self.p2.x_range.start = slxmin
         self.p2.x_range.end = xmax
+        self.p2.y_range.start = ymin
+        self.p2.y_range.end = ymax
 
         self.p3.x_range.start = xmin
         self.p3.x_range.end = xmax
+        self.p3.y_range.start = slymin
+        self.p3.y_range.end = ymax
 
         self.p4.x_range.start = slxmin
         self.p4.x_range.end = xmax
-
-        for r in self.rs:
-            r.glyph.x = self.labels[new]
+        self.p4.y_range.start = slymin
+        self.p4.y_range.end = ymax
 
         self.l1.data_source.data['x'] = lineparams
         self.l1.data_source.data['y'] = lineparams
@@ -430,64 +453,28 @@ source.change.emit();
 
         self.l4.data_source.data['x'] = [lminlim,maxlim]
         self.l4.data_source.data['y'] = [lminlim,maxlim]
+
+    def updateallx(self,new):
+        
+        for r in self.rs:
+            r.glyph.x = self.labels[new]
+
+        self.updateaxlim()
     
         for p in self.ps:
             p.xaxis.axis_label = self.labels[new]
 
     def updateally(self,new):
-        newy = self.source.data[self.labels[new]]
-        axlims,lineparams = findextremes(self.r1.data_source.data[self.labels[self.xradio.active]],newy,pad=self.pad)
-        xmin,xmax,ymin,ymax=axlims
-        minlim,maxlim = lineparams
-
-        if minlim < 0:
-            lminlim = lzp
-        else:
-            lminlim = minlim
-
-        if ymin < 0:
-            slymin = zp[self.labels[new]]
-        else:
-            slymin = xmin
-
-        self.p1.y_range.start=ymin
-        self.p1.y_range.end=ymax
-
-        self.p2.y_range.start = ymin
-        self.p2.y_range.end = ymax
-
-        self.p3.y_range.start = slymin
-        self.p3.y_range.end = ymax
-
-        self.p4.y_range.start = slymin
-        self.p4.y_range.end = ymax
 
         for r in self.rs:
             r.glyph.y = self.labels[new] 
+        
+        self.updateaxlim()
 
-        self.l1.data_source.data['x'] = lineparams
-        self.l1.data_source.data['y'] = lineparams
-
-        self.l2.data_source.data['x'] = np.logspace(np.log10(lminlim),np.log10(maxlim),100)
-        self.l2.data_source.data['y'] = np.logspace(np.log10(lminlim),np.log10(maxlim),100)
-
-        self.l3.data_source.data['x'] = np.logspace(np.log10(lminlim),np.log10(maxlim),100)
-        self.l3.data_source.data['y'] = np.logspace(np.log10(lminlim),np.log10(maxlim),100)
-
-        self.l4.data_source.data['x'] = [lminlim,maxlim]
-        self.l4.data_source.data['y'] = [lminlim,maxlim]
-    
         for p in self.ps:
             p.yaxis.axis_label = self.labels[new]
 
 starter = display_result(timestamp='2018-07-09.19.50.41.862297',pad=0.1)
-starter.r1.data_source.on_change('selected', starter.updatehist)
-starter.r2.data_source.on_change('selected', starter.updatehist)
-starter.r3.data_source.on_change('selected', starter.updatehist)
-starter.r4.data_source.on_change('selected', starter.updatehist)
-starter.xradio.on_click(starter.updateallx)
-starter.yradio.on_click(starter.updateally)
-
 
 # plot_eps = 0.5
 # def updateeps(attr,old,new):
