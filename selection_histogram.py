@@ -14,10 +14,21 @@ from clustering_stats import *
 from bokeh.layouts import row, column, widgetbox
 from bokeh.models import BoxSelectTool, LassoSelectTool, Spacer,CustomJS
 from bokeh.models.glyphs import Circle
-from bokeh.models.widgets import Toggle,RadioButtonGroup,AutocompleteInput,Tabs, Panel, Select
+from bokeh.models.widgets import Toggle,RadioButtonGroup,AutocompleteInput,Tabs, Panel, Select, Button
 from bokeh.plotting import figure, curdoc, ColumnDataSource, reset_output
 from bokeh.io import show
 from bokeh import events
+
+class SelectClick(events.Event):
+    ''' Announce a button click event on a Bokeh Button widget.
+    '''
+    event_name = 'select_click'
+
+    def __init__(self, model):
+        if model is not None and not isinstance(model, Select):
+            msg ='{clsname} event only applies to Select models'
+            raise ValueError(msg.format(clsname=self.__class__.__name__))
+        super(SelectClick, self).__init__(model=model)
 
 case = 7
 
@@ -220,6 +231,7 @@ source.change.emit();
         self.p2.on_event(events.Reset,self.resetplots)
         self.p3.on_event(events.Reset,self.resetplots)
         self.p4.on_event(events.Reset,self.resetplots)
+        self.selectparam.on_event(SelectClick,self.updateparam)
         curdoc().add_root(self.layout)
         curdoc().title = "DBSCAN on {0} with eps={1}, min_samples={2}".format(typenames[self.dtype], 
                                                                               self.epsval,self.minval)
@@ -390,6 +402,7 @@ source.change.emit();
             prop.h1.data_source.data['top'] = prop.zeros
         self.updateaxlim()
 
+
     def updatehist(self, attr, old, new):
         inds = np.array(new['1d']['indices'])
         if len(inds) == 0 or len(inds) == self.numc:
@@ -473,6 +486,17 @@ source.change.emit();
 
         for p in self.ps:
             p.yaxis.axis_label = self.labels[new]
+
+    def updateparam(self,attrs):
+        print('I was called')
+        eps,min_sample = [i.split('=')[-1] for i in self.selectparam.value.split(', ')]
+        eps = float(eps)
+        min_sample = int(min_sample)
+        ind = np.where((self.eps==eps)&(self.min_samples==min_sample))[0][0]
+        self.source = self.sourcedict['source{0}'.format(ind)]
+        self.updateaxlim()
+
+
 
 starter = display_result(timestamp='2018-07-09.19.50.41.862297',pad=0.1)
 
