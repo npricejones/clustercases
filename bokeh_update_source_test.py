@@ -47,7 +47,7 @@ for (key in data2) {
     }
 }
 };
-
+console.log("Hello world");
 source.change.emit();
 """
 select.callback = CustomJS(args=dict(source=fill_source,source1=source1,source2=source2),code=codes)
