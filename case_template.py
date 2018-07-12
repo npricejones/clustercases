@@ -98,7 +98,7 @@ def create_indeps(mem,degree=2,full=np.array([]),cross=np.array([])):
         
 
 # run parameters
-nstars = 4e4 # number of stars
+nstars = 1e3 # number of stars
 sample='allStar_chemscrub.npy' # APOGEE sample to draw from
 abundancefac = 0 # scaling factor for abundance noise
 specfac = 0 # scaling factor for spectra noise
@@ -113,14 +113,15 @@ spreadchoice = spreads # choose which abudance spreads to employ
 # DBSCAN parameters
 smin_samples = np.array([2,3])
 ssamples = len(smin_samples)
-eps = [i*10**lg for i in [1,5]]
+lg = np.arange(-3,1)
+eps = [i*10.**lg for i in [1,5]]
 eps = np.concatenate((eps[0],eps[1]))
 eps.sort()
 seps = eps
 smin_samples = np.tile(smin_samples,len(seps))
 amin_samples = np.array([2,3])
 asamples = len(amin_samples)
-aeps = aeps
+aeps = eps
 amin_samples = np.tile(amin_samples,len(aeps))
 aeps = np.repeat(aeps,asamples)
 seps = np.repeat(seps,ssamples)
@@ -128,7 +129,7 @@ seps = np.repeat(seps,ssamples)
 
 class caserun(object):
 
-    def __init__(self,nstars=5e4,sample=sample,abundancefac=abundancefac,
+    def __init__(self,nstars=nstars,sample=sample,abundancefac=abundancefac,
                  spreadchoice=spreadchoice,specfac=specfac,
                  fullfitkeys=fullfitkeys,fullfitatms=fullfitatms,
                  crossfitkeys=crossfitkeys,crossfitatms=crossfitatms,
@@ -157,7 +158,7 @@ class caserun(object):
         print('Finished desired clustering in {0} seconds'.format(end-start))
 
 
-    def create_clusters(self,nstars,sample)
+    def create_clusters(self,nstars,sample):
         self.nstars = nstars
         self.sample = sample
         # generate number of stars in a each cluster according to the CMF
@@ -170,8 +171,8 @@ class caserun(object):
         header = f.readline()[2:-1]
         f.close()
         self.numm = np.loadtxt(starfile).astype(int)
-        self.numc = len(numm)
-        self.mem = np.sum(numm)
+        self.numc = len(self.numm)
+        self.mem = np.sum(self.numm)
 
         # designate true labels
         self.labels = np.arange(len(self.numm))
@@ -202,8 +203,8 @@ class caserun(object):
         self.datafile = h5py.File(self.clusters.synfilename,'r+')
         self.centers = self.datafile['center_abundances_'+self.clusters.timestamps[0].decode('UTF-8')]
         # Save true labels
-        dsetname = 'normalgeneration/labels_true_{0}'.format(clusters.timestamps[0].decode('UTF-8'))
-        datafile[dsetname] = self.labels_true
+        dsetname = 'normalgeneration/labels_true_{0}'.format(self.clusters.timestamps[0].decode('UTF-8'))
+        self.datafile[dsetname] = self.labels_true
 
     def create_stars(self,abundancefac,spreadchoice,specfac,phvary=True):
 
@@ -233,7 +234,7 @@ class caserun(object):
 
 
         # Generate spectra
-        self.specinfo = psmspectra(self.mem,photosphere,self.clusters.elems)
+        self.specinfo = psmspectra(self.mem,self.photosphere,self.clusters.elems)
         self.specinfo.from_center_abundances(self.centers,self.numm,8)
 
         # Add noise to spectra
@@ -277,7 +278,7 @@ class caserun(object):
 
     def plotfile(self):
         self.pfname = 'case{0}_{1}.hdf5'.format(self.case,
-                                                self.clusters.timestamps[0].decode('UTF-8')),
+                                                self.clusters.timestamps[0].decode('UTF-8'))
         self.plot = h5py.File(self.pfname,'w')
         self.plot['labels_true'] = self.labels_true
         tcount,tlabs = membercount(self.labels_true)
@@ -298,11 +299,12 @@ class caserun(object):
                                                  self.abundances)
 
         # Intialize predicted labels
-        d = distance_metrics(self.specinfo.spectra)
-        plot['spec_true_sil_neigh{0}'.format(neighbours)] = d.silhouette(labels_true,k=neighbours)[0]
+        # d = distance_metrics(self.specinfo.spectra)
+        #self.plot['spec_true_sil_neigh{0}'.format(neighbours)] = d.silhouette(self.labels_true,k=neighbours)[0]
         spec_labels_pred = -np.ones((len(seps),self.mem))
         spec_cbn = np.zeros((len(seps),self.mem))
-        spec_matchlabs = []
+        spec_matchtlabs = []
+        spec_sizes_pred = []
         spec_eff = []
         spec_com = []
         spec_sil = []
@@ -322,22 +324,25 @@ class caserun(object):
                 plabs = np.delete(plabs,bad[0][0])
                 pcount = np.delete(pcount,bad[0][0])
             efficiency, completeness, plabs, matchtlabs = efficiency_completeness(db.labels_,self.labels_true,minmembers=1)
-            if len(plabs) > 0:
+            if len(plabs) > 5:
                 k = neighbours
                 if len(plabs) < neighbours and len(plabs) > 1:
                     k = len(plabs)-1
                 elif len(plabs) == 1:
                     k = 1
-                silhouette = d.silhouette(spec_labels_pred[i],k=k)[0]
-                spec_sil.append(silhouette)
+                
+                #silhouette = d.silhouette(spec_labels_pred[i],k=k)[0]
+                #spec_sil.append(silhouette)
                 spec_eff.append(efficiency)
                 spec_com.append(completeness)
                 spec_matchtlabs.append(matchtlabs)
-            elif len(plabs) == 0:
-                spec_sil.append([])
+                spec_sizes_pred.append(pcount)
+            elif len(plabs) <= 5:
+                #spec_sil.append([])
                 spec_eff.append([])
                 spec_com.append([])
                 spec_matchtlabs.append([])
+                spec_sizes_pred.append([])
             core = db.core_sample_indices_
             spec_cbn[i][core] = 1
             spec_labels_pred[i] = db.labels_        
@@ -352,17 +357,19 @@ class caserun(object):
         self.plot['spec_labels_match'] = spec_matchtlabs
         self.plot['spec_efficiency'] = spec_eff
         self.plot['spec_completeness'] = spec_com
-        self.plot['spec_silhouette'] = spec_sil 
+        self.plot['spec_silhouette'] = spec_sil
+        self.plot['spec_sizes_pred'] = spec_sizes_pred
 
         # Intialize predicted labels
-        d = distance_metrics(self.abundances)
-        plot['abun_true_sil_neigh{0}'.format(neighbours)] = d.silhouette(labels_true,k=neighbours)[0]
+#        d = distance_metrics(self.abundances)
+        #self.plot['abun_true_sil_neigh{0}'.format(neighbours)] = d.silhouette(self.labels_true,k=neighbours)[0]
         abun_labels_pred = -np.ones((len(aeps),self.mem))
         abun_cbn = np.zeros((len(aeps),self.mem))
-        abun_matchlabs = []
+        abun_matchtlabs = []
         abun_eff = []
         abun_com = []
         abun_sil = []
+        abun_sizes_pred = []
         for i in range(len(aeps)):
             start = time.time()
             if metric =='precomputed':
@@ -379,22 +386,24 @@ class caserun(object):
                 plabs = np.delete(plabs,bad[0][0])
                 pcount = np.delete(pcount,bad[0][0])
             efficiency, completeness, plabs, matchtlabs = efficiency_completeness(db.labels_,self.labels_true,minmembers=1)
-            if len(plabs) > 0:
+            if len(plabs) > 5:
                 k = neighbours
                 if len(plabs) < neighbours and len(plabs) > 1:
                     k = len(plabs)-1
                 elif len(plabs) == 1:
                     k = 1
-                silhouette = d.silhouette(abun_labels_pred[i],k=k)[0]
-                abun_sil.append(silhouette)
+ #               silhouette = d.silhouette(abun_labels_pred[i],k=k)[0]
+ #               abun_sil.append(silhouette)
                 abun_eff.append(efficiency)
                 abun_com.append(completeness)
                 abun_matchtlabs.append(matchtlabs)
-            elif len(plabs) == 0:
-                abun_sil.append([])
+                abun_sizes_pred.append(pcount)
+            elif len(plabs) <= 5:
+ #               abun_sil.append([])
                 abun_eff.append([])
                 abun_com.append([])
                 abun_matchtlabs.append([])
+                abun_sizes_pred.append(pcount)
             core = db.core_sample_indices_
             abun_cbn[i][core] = 1
             abun_labels_pred[i] = db.labels_        
@@ -409,7 +418,8 @@ class caserun(object):
         self.plot['abun_labels_match'] = abun_matchtlabs
         self.plot['abun_efficiency'] = abun_eff
         self.plot['abun_completeness'] = abun_com
-        self.plot['abun_silhouette'] = abun_sil 
+        self.plot['abun_silhouette'] = abun_sil
+        self.plot['abun_sizes_pred'] = abun_sizes_pred
         self.plot.close()
         print('I saved everything in {0}'.format(self.pfname))
 
