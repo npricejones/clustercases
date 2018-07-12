@@ -127,16 +127,21 @@ class read_results(object):
 
     def read_run_data(self):
         self.sourcedict = {}
+        self.goodind = 2
         for i in range(len(self.eps)):
             self.epsval = self.eps[i]
             self.minval = self.min_samples[i]
             self.matchtlabs = self.data['{0}_match_tlabs_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
-            self.msil = self.tsil[self.matchtlabs]
+            if len(self.matchtlabs) > 0:
+                self.msil = self.tsil[self.matchtlabs]
+                self.msize = self.tsize[self.matchtlabs]
+            elif len(self.matchtlabs) == 0:
+                self.msil = np.array([])
+                self.msize = np.array([])
             self.fsil = self.data['{0}_found_sil_eps{1}_min{2}_neigh{3}'.format(self.dtype,self.epsval,self.minval,neighbours)][:]
             self.eff = self.data['{0}_eff_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
             self.com = self.data['{0}_com_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
             self.fsize = self.data['{0}_found_size_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
-            self.msize = self.tsize[self.matchtlabs]
             self.numc = len(self.fsize)
             datadict = {'Efficiency':self.eff,'Completeness':self.com,
                              'Found Silhouette':self.fsil,'Matched Silhouette':self.msil,
@@ -144,7 +149,7 @@ class read_results(object):
             setattr(self,'datadict_eps{0}_min{1}'.format(self.epsval,self.minval),datadict)
             #setattr(self,'source_eps{0}_min{1}'.format(self.epsval,self.minval),ColumnDataSource(data=datadict))
             self.sourcedict['source{0}'.format(i)] = ColumnDataSource(data=datadict)
-            if i==0:
+            if i==self.goodind:
                 self.source = ColumnDataSource(data=datadict)
                 self.sourcedict['source'] = self.source
 
@@ -386,7 +391,7 @@ source.change.emit();
         paramchoices = []
         for i in range(len(self.eps)):
             paramchoices.append('eps={0}, min={1}'.format(self.eps[i],self.min_samples[i]))
-        self.selectparam = Select(title="parameter values", value=paramchoices[0], 
+        self.selectparam = Select(title="parameter values", value=paramchoices[self.goodind], 
                            options=paramchoices)
         self.JScallback()
         self.selectparam.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
@@ -528,11 +533,12 @@ source.change.emit();
         newpb3.plot_hist(xscale='log',yscale='log',background=self.tsize,update=True)
         self.pb3.mnhist.glyph.top = newpb3.hist
 
+starter = display_result(case=7,timestamp='2018-07-09.19.50.41.862297',pad=0.1)
 
-
-
-
-starter = display_result(timestamp='2018-07-09.19.50.41.862297',pad=0.1)
+goodcasefiles = ['case8_2018-07-12.17.56.09.902178.hdf5',
+                 'case6_2018-07-12.17.58.51.280643.hdf5',
+                 'case4_2018-07-12.18.01.18.731772.hdf5',
+                 'case7_2018-07-09.19.50.41.862297.hdf5']
 
 # plot_eps = 0.5
 # def updateeps(attr,old,new):
