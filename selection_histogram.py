@@ -14,65 +14,61 @@ from clustering_stats import *
 from bokeh.layouts import row, column, widgetbox
 from bokeh.models import BoxSelectTool, LassoSelectTool, Spacer,CustomJS
 from bokeh.models.glyphs import Circle
-from bokeh.models.widgets import Toggle,RadioButtonGroup,AutocompleteInput,Tabs, Panel, Select
-from bokeh.plotting import figure, curdoc, ColumnDataSource
+from bokeh.models.widgets import Toggle,RadioButtonGroup,AutocompleteInput,Tabs, Panel, Select, Button
+from bokeh.plotting import figure, curdoc, ColumnDataSource, reset_output
 from bokeh.io import show
+from bokeh import events
+
+class SelectClick(events.Event):
+    ''' Announce a button click event on a Bokeh Button widget.
+    '''
+    event_name = 'select_click'
+
+    def __init__(self, model):
+        if model is not None and not isinstance(model, Select):
+            msg ='{clsname} event only applies to Select models'
+            raise ValueError(msg.format(clsname=self.__class__.__name__))
+        super(SelectClick, self).__init__(model=model)
 
 case = 7
 
 neighbours = 20
 
-
-
-
-
-
-
-
-
-data={'Efficiency':efficiency,'Completeness':completeness,
-      'Found Silhouette':ssil_found,'True Silhouette':ssil_true[matchtlabs],
-      'Found Size':pcount,'Matched Size':tcount[matchtlabs]}
-
-TOOLS="pan,wheel_zoom,box_select,lasso_select,reset"
+TOOLS="pan,wheel_zoom,box_zoom,box_select,lasso_select,reset,save"
 
 resultpath = '/Users/nat/chemtag/clustercases/'
 
-files = glob.glob('*.hdf5')
-
 typenames = {'spec':'spectra','abun':'abundances'}
 
-#case = AutocompleteInput(completions=)
-#timestamp = AutocompleteInput(completions=)
-
-zp = 1e-12
-
-# create the scatter plot
-panels = []
+zp = {'Efficiency':5e-3,'Completeness':5e-3,'Found Silhouette':5e-3,'Matched Silhouette':5e-3,'Found Size':0.5,'Matched Size':0.5}
+lzp=1e-3
+plot_eps = 0.5
+padfac = 0.1
 
 def findextremes(x,y,pad=0.1):
     xmin = np.min(x)
     xmax = np.max(x)
     ymin = np.min(y)
     ymax = np.max(y)
-    xmin -= pad*xmax
+    xmin -= padfac*pad*xmax
     xmax += pad*xmax
-    ymin -= pad*ymax
+    ymin -= padfac*pad*ymax
     ymax += pad*ymax
     minlim = np.min([xmin,ymin])
     maxlim = np.max([xmax,ymax])
     return (xmin,xmax,ymin,ymax),[minlim,maxlim]
 
 class prophist(object):
-    def __init__(self,arr,bins=20):
-        self.arr = arr
-        self.hist, self.edges = np.histogram(arr, bins=bins)
+    def __init__(self,obj,key,bins=20):
+        self.xlabel = key
+        self.arr = obj.source.data[key] 
+        self.hist, self.edges = np.histogram(self.arr, bins=bins)
         self.hist = self.hist.astype('float')
         self.zeros = np.zeros(len(self.edges)-1)
         self.hist_max = max(self.hist)*1.1
 
-    def plot_hist(self,x_range=(),xlabel='',
-                  xscale='linear',yscale='linear',background=[],
+    def plot_hist(self,x_range=(),xscale='linear',
+                  yscale='linear',background=[], update=False,
                   colors=['#FFF7EA','#4C230A','#280004','#F6BD60','#A53F2B']):
         backcolor,unselectcolor,outlinecolor,mainhistcolor,mainptcolor =  colors
         if background != []:
@@ -85,32 +81,33 @@ class prophist(object):
         if x_range==():
             x_range = (np.min(self.edges),np.max(self.edges))
         if yscale=='linear':
-            ymin = 0
+            self.ymin = 0
         elif yscale=='log':
-            ymin=plot_eps+plot_eps/2.
+            self.ymin=plot_eps+plot_eps/2.
             self.hist[self.hist < plot_eps] = plot_eps
             if background != []:
                 self.backhist[self.backhist < plot_eps] = plot_eps
-        self.pt = figure(toolbar_location=None, plot_width=220, plot_height=200, x_range=x_range,
-                    y_range=(ymin, self.hist_max), min_border=10, min_border_left=50, 
-                    y_axis_location="right",x_axis_label=xlabel,
-                    x_axis_type=xscale,y_axis_type=yscale)
-        self.pt.xgrid.grid_line_color = None
-        #pt.yaxis.major_label_orientation = np.pi/4
-        self.pt.background_fill_color = backcolor
+        if not update:
+            self.pt = figure(toolbar_location=None, plot_width=220, plot_height=200, x_range=x_range,
+                        y_range=(self.ymin, self.hist_max), min_border=10, min_border_left=50, 
+                        y_axis_location="right",x_axis_label=self.xlabel,
+                        x_axis_type=xscale,y_axis_type=yscale)
+            self.pt.xgrid.grid_line_color = None
+            #pt.yaxis.major_label_orientation = np.pi/4
+            self.pt.background_fill_color = backcolor
 
-        if background != []:
-            self.pt.quad(bottom=ymin, left=self.edges[:-1], right=self.edges[1:], 
-                         top=self.backhist, color=unselectcolor, line_color=outlinecolor)
-        self.pt.quad(bottom=ymin, left=self.edges[:-1], right=self.edges[1:], 
-                     top=self.hist, color=mainhistcolor, line_color=outlinecolor,alpha=0.7)
-        self.h1 = self.pt.quad(bottom=ymin, left=self.edges[:-1], right=self.edges[1:], 
-                               top=self.zeros, alpha=0.6, color=mainptcolor,line_color=None)
+            if background != []:
+                self.bghist = self.pt.quad(bottom=self.ymin, left=self.edges[:-1], right=self.edges[1:], 
+                             top=self.backhist, color=unselectcolor, line_color=outlinecolor)
+            self.mnhist= self.pt.quad(bottom=self.ymin, left=self.edges[:-1], right=self.edges[1:], 
+                         top=self.hist, color=mainhistcolor, line_color=outlinecolor,alpha=0.7)
+            self.h1 = self.pt.quad(bottom=self.ymin, left=self.edges[:-1], right=self.edges[1:], 
+                                   top=self.zeros, alpha=0.6, color=mainptcolor,line_color=None)
 
 class read_results(object):
 
     def __init__(self,ind = 0, datatype = 'spec', case = 7, 
-                 timestamp = '2018-06-29.20.20.13.729481'):
+                 timestamp = '2018-07-06.14.28.11.782906'):
         self.ind = ind
         self.dtype = datatype
         self.case = case
@@ -128,26 +125,28 @@ class read_results(object):
         self.min_samples = self.data.attrs['{0}_min'.format(self.dtype)][:]
         self.eps = self.data.attrs['{0}_eps'.format(self.dtype)][:]
 
-    def find_ind(self,eps,min_samples):
-        return np.where((eps==self.eps) & (min_samples==self.min_samples))
-
-    def read_run_data(self,ind=None, eps=None, min_samples=None, neighbours=20):
-        if ind:
-            self.ind = ind
-        if eps and min_samples:
-            self.ind = self.find_ind()[0][0]
-        eps = self.eps[self.ind]
-        min_samples = self.min_samples[self.ind]
-        self.msil = self.tsil[matchtlabs]
-        self.fsil = self.data['{0}_found_sil_eps{1}_min{2}_neigh{3}'.format(self.dtype,eps,min_samples,neighbours)][:]
-        self.eff = self.data['{0}_eff_eps{1}_min{2}'.format(self.dtype,eps,min_samples)][:]
-        self.com = self.data['{0}_com_eps{1}_min{2}'.format(self.dtype,eps,min_samples)][:]
-        self.fsize = self.data['{0}_found_size_eps{1}_min{2}'.format(self.dtype,eps,min_samples)][:]
-        self.msize = self.tsize[matchtlabs]
-        self.numc = len(self.fsize)
-        self.datadict = {'Efficiency':self.eff,'Completeness':self.com,
-                         'Found Silhouette':self.fsil,'True Silhouette':self.tsil
-                         'Found Size':self.fsize,'Matched Size':self.msize}
+    def read_run_data(self):
+        self.sourcedict = {}
+        for i in range(len(self.eps)):
+            self.epsval = self.eps[i]
+            self.minval = self.min_samples[i]
+            self.matchtlabs = self.data['{0}_match_tlabs_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
+            self.msil = self.tsil[self.matchtlabs]
+            self.fsil = self.data['{0}_found_sil_eps{1}_min{2}_neigh{3}'.format(self.dtype,self.epsval,self.minval,neighbours)][:]
+            self.eff = self.data['{0}_eff_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
+            self.com = self.data['{0}_com_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
+            self.fsize = self.data['{0}_found_size_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
+            self.msize = self.tsize[self.matchtlabs]
+            self.numc = len(self.fsize)
+            datadict = {'Efficiency':self.eff,'Completeness':self.com,
+                             'Found Silhouette':self.fsil,'Matched Silhouette':self.msil,
+                             'Found Size':self.fsize,'Matched Size':self.msize}
+            setattr(self,'datadict_eps{0}_min{1}'.format(self.epsval,self.minval),datadict)
+            #setattr(self,'source_eps{0}_min{1}'.format(self.epsval,self.minval),ColumnDataSource(data=datadict))
+            self.sourcedict['source{0}'.format(i)] = ColumnDataSource(data=datadict)
+            if i==0:
+                self.source = ColumnDataSource(data=datadict)
+                self.sourcedict['source'] = self.source
 
 class display_result(read_results):
 
@@ -156,26 +155,90 @@ class display_result(read_results):
                  backgroundhist = True,sqside = 460,tools=TOOLS):
         read_results.__init__(self,ind=ind,datatype=datatype,case=case,
                               timestamp=timestamp)
-        self.sqsize=sqside
+        self.sqside=sqside
         self.backgroundhist=backgroundhist
         self.tools=tools
+        self.pad = pad
         self.set_colors()
+        self.layout_plots()
+        
+
+    def JScallback(self,):
+        """
+        Makes custom JavaScript callback from bokeh so you can easily swap source dictionaries.
+        """
+        varstr ="""
+var f = cb_obj.value;
+var data = source.data;
+        """
+        for i in range(len(self.eps)):
+            varstr+='\nvar data{0} = source{0}.data'.format(i)
+
+        actstr = """
+for (key in data0)
+        """
+
+        for i in range(len(self.eps)):
+            if i != len(self.eps)-1:
+                actstr+="""
+if (f == "eps={1}, min={2}") {{
+for (key in data{0}) {{
+    data[key] = [];
+    for (i=0;i<data{0}[key].length;i++){{
+    data[key].push(data{0}[key][i]);
+    }}
+}}
+}}
+            """.format(i,self.eps[i],self.min_samples[i])
+            elif i == len(self.eps)-1: # has a semicolon 
+                actstr+="""
+if (f == "eps={1}, min={2}") {{
+for (key in data{0}) {{
+    data[key] = [];
+    for (i=0;i<data{0}[key].length;i++){{
+    data[key].push(data{0}[key][i]);
+    }}
+}}
+}};
+            """.format(i,self.eps[i],self.min_samples[i])
+        exestr = """
+source.change.emit();
+"""
+        self.callbackstr = varstr+actstr+exestr
+
+
+
+    def layout_plots(self):
         self.read_base_data()
         self.read_run_data()
         self.center_plot()
         self.histograms()
         self.buttons()
-        #Spacer(width=50, height=100)
-        layout = row(column(widgetbox(self.toggleline),widgetbox(self.xradio,name='x-axis'),
-                            widgetbox(self.yradio,name='y-axis'),widgetbox(self.selecteps),widgetbox(self.selectmin)),
-                     column(Tabs(tabs=self.panels,width=self.sqside),row(self.pt3.pt,self.pb3.pt)),
-                     column(self.pt1.pt,self.pb1.pt),
-                     column(self.pt2.pt,self.pb2.pt),)
+        # Here's where you decide the distribution of plots
+        self.layout = row(column(widgetbox(self.toggleline),widgetbox(self.xradio,name='x-axis'),
+                        widgetbox(self.yradio,name='y-axis'),widgetbox(self.selectparam)),
+                 column(Tabs(tabs=self.panels,width=self.sqside),row(self.pt3.pt,self.pb3.pt)),
+                 column(self.pt1.pt,self.pb1.pt),
+                 column(self.pt2.pt,self.pb2.pt),)
 
-        curdoc().add_root(layout)
-        curdoc().title = "DBSCAN on {0} with eps={1}, min_samples={2}".format(typenames[self.dtype],
-                                                                              self.eps[self.ind],
-                                                                              self.min_samples[self.ind])
+        # Activate buttons
+        self.r1.data_source.on_change('selected', self.updatetophist)
+        self.r2.data_source.on_change('selected', self.updatetophist)
+        self.r3.data_source.on_change('selected', self.updatetophist)
+        self.r4.data_source.on_change('selected', self.updatetophist)
+        self.xradio.on_click(self.updateallx)
+        self.yradio.on_click(self.updateally)
+        self.p1.on_event(events.Reset,self.resetplots)
+        self.p2.on_event(events.Reset,self.resetplots)
+        self.p3.on_event(events.Reset,self.resetplots)
+        self.p4.on_event(events.Reset,self.resetplots)
+        # self.p1.on_event(events.MouseEnter,self.updateparam)
+        # self.p2.on_event(events.MouseEnter,self.updateparam)
+        # self.p3.on_event(events.MouseEnter,self.updateparam)
+        # self.p4.on_event(events.MouseEnter,self.updateparam)
+        curdoc().add_root(self.layout)
+        curdoc().title = "DBSCAN on {0} with eps={1}, min_samples={2}".format(typenames[self.dtype], 
+                                                                              self.epsval,self.minval)
 
     def set_colors(self):
         self.bcolor = "#FFF7EA" #cream
@@ -185,41 +248,35 @@ class display_result(read_results):
         self.outcolor = "#280004" #dark red black
         return [self.bcolor,self.unscolor,self.outcolor,self.histcolor,self.maincolor]
 
-    def center_plot(self,x=None,y=None):
+    def center_plot(self,xlabel=None,ylabel=None):
         self.panels = []
-        if not x:
-            x = self.efficiency
+        if not xlabel:
             xlabel = 'Efficiency'
-        elif x:
-            xlabel = x
-            x = self.datadict[xlabel]
-        if not y:
-            y = self.completeness
+        if not ylabel:
             ylabel = 'Completeness'
-        elif y:
-            ylabel = y
-            y = self.datadict[ylabel]
-        axlims,lineparams = findextremes(x,y)
+        x = self.source.data[xlabel]
+        y = self.source.data[ylabel]
+        axlims,lineparams = findextremes(x,y,pad=self.pad)
         xmin,xmax,ymin,ymax=axlims
         minlim,maxlim = lineparams
 
         if minlim < 0:
-            lminlim = zp
+            lminlim = lzp
         else:
             lminlim = minlim
 
         # LINEAR TAB
-        self.p1 = figure(tools=TOOLS, plot_width=sqside, plot_height=sqside, 
+        self.p1 = figure(tools=TOOLS, plot_width=self.sqside, plot_height=self.sqside, 
                          min_border=10, min_border_left=50, toolbar_location="above", 
                          x_axis_location='below', y_axis_location='left',
                          x_axis_label=xlabel,y_axis_label=ylabel,
                          x_axis_type='linear',y_axis_type='linear',
-                         x_range=(xmin,xmax),y_range=(xmin,xmax))
+                         x_range=(xmin,xmax),y_range=(ymin,ymax))
         self.p1.background_fill_color = self.bcolor
         self.p1.select(BoxSelectTool).select_every_mousemove = False
         self.p1.select(LassoSelectTool).select_every_mousemove = False
 
-        self.r1 = self.p1.scatter(x, y, size=3, color=mainptcolor, alpha=0.6)
+        self.r1 = self.p1.scatter(x=xlabel, y=ylabel, source=self.source, size=3, color=self.maincolor, alpha=0.6)
         self.l1 = self.p1.line(lineparams,lineparams,
                                color=self.outcolor)
         self.r1.nonselection_glyph = Circle(fill_color=self.unscolor, 
@@ -230,10 +287,10 @@ class display_result(read_results):
 
         # SEMILOGX TAB
         if xmin < 0:
-            slxmin = zp
+            slxmin = zp[xlabel]
         else:
             slxmin = xmin
-        self.p2 = figure(tools=TOOLS, plot_width=sqside, plot_height=sqside, 
+        self.p2 = figure(tools=TOOLS, plot_width=self.sqside, plot_height=self.sqside, 
                          min_border=10, min_border_left=50, toolbar_location="above", 
                          x_axis_location='below', y_axis_location='left',
                          x_axis_label=xlabel,y_axis_label=ylabel,
@@ -243,9 +300,9 @@ class display_result(read_results):
         self.p2.select(BoxSelectTool).select_every_mousemove = False
         self.p2.select(LassoSelectTool).select_every_mousemove = False
 
-        self.r2 = self.p2.scatter(x, y, size=3, color=mainptcolor, alpha=0.6)
+        self.r2 = self.p2.scatter(x=xlabel,y=ylabel, source=self.source, size=3, color=self.maincolor, alpha=0.6)
     
-        self.l2 = self.p2.line([lminlim,maxlim],[lminlim,maxlim],
+        self.l2 = self.p2.line(np.logspace(np.log10(lminlim),np.log10(maxlim),100),np.logspace(np.log10(lminlim),np.log10(maxlim),100),
                                color=self.outcolor)
         self.r2.nonselection_glyph = Circle(fill_color=self.unscolor, 
                                             fill_alpha=0.1, line_color=None)
@@ -255,10 +312,10 @@ class display_result(read_results):
 
         # SEMILOGY TAB
         if ymin < 0:
-            slymin = zp
+            slymin = zp[ylabel]
         else:
             slymin = ymin
-        self.p3 = figure(tools=TOOLS, plot_width=sqside, plot_height=sqside, 
+        self.p3 = figure(tools=TOOLS, plot_width=self.sqside, plot_height=self.sqside, 
                          min_border=10, min_border_left=50, toolbar_location="above", 
                          x_axis_location='below', y_axis_location='left',
                          x_axis_label=xlabel,y_axis_label=ylabel,
@@ -268,9 +325,9 @@ class display_result(read_results):
         self.p3.select(BoxSelectTool).select_every_mousemove = False
         self.p3.select(LassoSelectTool).select_every_mousemove = False
 
-        self.r3 = self.p3.scatter(x, y, size=3, color=mainptcolor, alpha=0.6)
+        self.r3 = self.p3.scatter(x=xlabel,y=ylabel, source=self.source, size=3, color=self.maincolor, alpha=0.6)
   
-        self.l3 = self.p3.line([lminlim,maxlim],[lminlim,maxlim],
+        self.l3 = self.p3.line(np.logspace(np.log10(lminlim),np.log10(maxlim),100),np.logspace(np.log10(lminlim),np.log10(maxlim),100),
                                color=self.outcolor)
         self.r3.nonselection_glyph = Circle(fill_color=self.unscolor, 
                                             fill_alpha=0.1, line_color=None)
@@ -279,7 +336,7 @@ class display_result(read_results):
 
 
         # LOG PLOT
-        self.p4 = figure(tools=TOOLS, plot_width=sqside, plot_height=sqside, 
+        self.p4 = figure(tools=TOOLS, plot_width=self.sqside, plot_height=self.sqside, 
                          min_border=10, min_border_left=50, toolbar_location="above", 
                          x_axis_location='below', y_axis_location='left',
                          x_axis_label=xlabel,y_axis_label=ylabel,
@@ -289,7 +346,7 @@ class display_result(read_results):
         self.p4.select(BoxSelectTool).select_every_mousemove = False
         self.p4.select(LassoSelectTool).select_every_mousemove = False
 
-        self.r4 = self.p4.scatter(x, y, size=3, color=mainptcolor, alpha=0.6)
+        self.r4 = self.p4.scatter(x=xlabel,y=ylabel, source=self.source, size=3, color=self.maincolor, alpha=0.6)
         self.l4 = self.p4.line([lminlim,maxlim],[lminlim,maxlim],
                                color=self.outcolor)
         self.r4.nonselection_glyph = Circle(fill_color=self.unscolor, 
@@ -297,41 +354,43 @@ class display_result(read_results):
 
         self.panels.append(Panel(child=self.p4,title='log'))
 
-        self.ps = [p1,p2,p3,p4]
-        self.rs = [r1,r2,r3,r4]
-        self.ls = [l1,l2,l3,l4]
+        self.ps = [self.p1,self.p2,self.p3,self.p4]
+        self.rs = [self.r1,self.r2,self.r3,self.r4]
+        self.ls = [self.l1,self.l2,self.l3,self.l4]
 
         # NEEDS CHECK FOR <= 0 POINTS
 
-    def histograms(self):
-        self.pt1 = prophist(self.eff,bins=np.linspace(0,1,20))
-        self.pt1.plot_hist(x_range=(0,1),xlabel='Efficiency',yscale='log')
-        self.pb1 = prophist(self.com,bins=np.linspace(0,1,20))
-        self.pb1.plot_hist(x_range=(0,1),xlabel='Completeness',yscale='log')
-        self.pt2 = prophist(self.fsil,bins=np.linspace(-1,1,40))
-        self.pt2.plot_hist(x_range=(0,1),xlabel='Found Silhouette',yscale='log')
-        self.pb2 = prophist(self.msil,self.,bins=np.linspace(-1,1,40),background=self.tsil)
-        self.pb2.plot_hist(x_range=(0,1),xlabel='True Silhouette',yscale='log')
-        self.pt3 = prophist(self.fsize,bins = np.logspace(0,3,20))
-        self.pt3.plot_hist(xlabel='Found Size',xscale='log',yscale='log',background=self.tsize)
-        self.pb3 = prophist(self.msize,bins = np.logspace(0,3,20))
-        self.pb3.plot_hist(xlabel='Matched Size',xscale='log',yscale='log',background=self.tsize)
+    def histograms(self,update=False):
+        self.pt1 = prophist(self,'Efficiency',bins=np.linspace(0,1,20))
+        self.pt1.plot_hist(x_range=(0,1),yscale='log')
+        self.pb1 = prophist(self,'Completeness',bins=np.linspace(0,1,20))
+        self.pb1.plot_hist(x_range=(0,1),yscale='log')
+        self.pt2 = prophist(self,'Found Silhouette',bins=np.linspace(-1,1,40))
+        self.pt2.plot_hist(x_range=(0,1),yscale='log')
+        self.pb2 = prophist(self,'Matched Silhouette',bins=np.linspace(-1,1,40))
+        self.pb2.plot_hist(x_range=(0,1),yscale='log',background=self.tsil)
+        self.pt3 = prophist(self,'Found Size',bins= np.logspace(0,3,20))
+        self.pt3.plot_hist(xscale='log',yscale='log',background=self.tsize)
+        self.pb3 = prophist(self,'Matched Size',bins= np.logspace(0,3,20))
+        self.pb3.plot_hist(xscale='log',yscale='log',background=self.tsize)
         self.proplist = [self.pt1,self.pb1,self.pt2,self.pb2,self.pt3,self.pb3]
 
 
     def buttons(self):
-        self.labels = list(self.datadict.keys())
+
+        self.labels = list(self.source.data.keys())
 
         self.xradio = RadioButtonGroup(labels=self.labels, active=0,name='x-axis')
         self.yradio = RadioButtonGroup(labels=self.labels, active=1,name='y-axis')
 
-        streps = list(np.unique(self.eps).astype(str))
-        strmin = list(np.unique(self.min_samples).astype(str))
-        self.selecteps = Select(title="eps value", value=str(self.eps[self.ind]), 
-                           options=streps)
-        self.selectmin = Select(title="min_samples value", value=str(self.min_samples[self.ind]), 
-                           options=strmin)
-
+        paramchoices = []
+        for i in range(len(self.eps)):
+            paramchoices.append('eps={0}, min={1}'.format(self.eps[i],self.min_samples[i]))
+        self.selectparam = Select(title="parameter values", value=paramchoices[0], 
+                           options=paramchoices)
+        self.JScallback()
+        self.selectparam.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
+        self.selectparam.on_change('value',self.updateparam)
         code = '''\
         object1.visible = toggle.active
         object2.visible = toggle.active
@@ -342,123 +401,148 @@ class display_result(read_results):
         self.toggleline = Toggle(label="One-to-one line", button_type="success", active=True,callback=linecb)
         linecb.args = {'toggle': self.toggleline, 'object1': self.l1, 'object2': self.l2, 'object3': self.l3, 'object4': self.l4}
 
-    def updatehist(self, attr, old, new):
+    def resetplots(self,attrs):
+        for i,prop in enumerate(self.proplist):
+            prop.h1.data_source.data['top'] = prop.zeros
+        self.updateaxlim()
+
+
+    def updatetophist(self, attr, old, new):
         inds = np.array(new['1d']['indices'])
         if len(inds) == 0 or len(inds) == self.numc:
             for i,prop in enumerate(self.proplist):
                 prop.h1.data_source.data['top'] = prop.zeros
         else:
-            neg_inds = np.ones_like(self.eff, dtype=np.bool)
+            neg_inds = np.ones_like(self.source.data['Efficiency'], dtype=np.bool)
             neg_inds[inds] = False
-            for i,prop in enumerate(props):
+            for i,prop in enumerate(self.proplist):
                 hist = (np.histogram(prop.arr[inds],bins=prop.edges)[0]).astype('float')
                 prop.h1.data_source.data['top'] = hist
 
-    def updateallx(new):
-        newx = self.datadict[self.labels[new]]
-        axlims,lineparams = findextremes(newx,self.r1.data_source.data['y'])
+    def updateaxlim(self):
+        print('Axis limits updating')
+        axlims,lineparams = findextremes(self.source.data[self.labels[self.xradio.active]],
+                                         self.source.data[self.labels[self.yradio.active]],
+                                         pad=self.pad)
         xmin,xmax,ymin,ymax=axlims
         minlim,maxlim = lineparams
 
         if minlim < 0:
-            lminlim = zp
+            lminlim = lzp
         else:
             lminlim = minlim
 
         if xmin < 0:
-            slxmin = zp
+            slxmin = zp[self.labels[self.xradio.active]]
         else:
             slxmin = xmin
 
-        p1.x_range.start=xmin
-        p1.x_range.end=xmax
+        if ymin < 0:
+            slymin = zp[self.labels[self.yradio.active]]
+        else:
+            slymin = ymin
 
-        p2.x_range.start = slxmin
-        p2.x_range.end = xmax
+        self.p1.x_range.start=xmin
+        self.p1.x_range.end=xmax
+        self.p1.y_range.start=ymin
+        self.p1.y_range.end=ymax
 
-        p3.x_range.start = xmin
-        p3.x_range.end = xmax
+        self.p2.x_range.start = slxmin
+        self.p2.x_range.end = xmax
+        self.p2.y_range.start = ymin
+        self.p2.y_range.end = ymax
 
-        p4.x_range.start = slxmin
-        p4.x_range.end = xmax
+        self.p3.x_range.start = xmin
+        self.p3.x_range.end = xmax
+        self.p3.y_range.start = slymin
+        self.p3.y_range.end = ymax
 
+        self.p4.x_range.start = slxmin
+        self.p4.x_range.end = xmax
+        self.p4.y_range.start = slymin
+        self.p4.y_range.end = ymax
+
+        self.l1.data_source.data['x'] = lineparams
+        self.l1.data_source.data['y'] = lineparams
+
+        self.l2.data_source.data['x'] = np.logspace(np.log10(lminlim),np.log10(maxlim),100)
+        self.l2.data_source.data['y'] = np.logspace(np.log10(lminlim),np.log10(maxlim),100)
+
+        self.l3.data_source.data['x'] = np.logspace(np.log10(lminlim),np.log10(maxlim),100)
+        self.l3.data_source.data['y'] = np.logspace(np.log10(lminlim),np.log10(maxlim),100)
+
+        self.l4.data_source.data['x'] = [lminlim,maxlim]
+        self.l4.data_source.data['y'] = [lminlim,maxlim]
+
+    def updateallx(self,new):
+        
         for r in self.rs:
-            r.data_source.data['x'] = newx 
+            r.glyph.x = self.labels[new]
 
-        l1.data_source.data['x'] = lineparams
-        l1.data_source.data['y'] = lineparams
-
-        l2.data_source.data['x'] = [lminlim,maxlim]
-        l2.data_source.data['y'] = lineparams
-
-        l3.data_source.data['x'] = lineparams
-        l3.data_source.data['y'] = [lminlim,maxlim]
-
-        l4.data_source.data['x'] = [lminlim,maxlim]
-        l4.data_source.data['y'] = [lminlim,maxlim]
+        self.updateaxlim()
     
         for p in self.ps:
             p.xaxis.axis_label = self.labels[new]
 
-    def updateallx(new):
-        newy = self.datadict[self.labels[new]]
-        axlims,lineparams = findextremes(self.r1.data_source.data['x'],newy)
-        xmin,xmax,ymin,ymax=axlims
-        minlim,maxlim = lineparams
-
-        if minlim < 0:
-            lminlim = zp
-        else:
-            lminlim = minlim
-
-        if ymin < 0:
-            slymin = zp
-        else:
-            slymin = xmin
-
-        p1.y_range.start=ymin
-        p1.y_range.end=ymax
-
-        p2.y_range.start = ymin
-        p2.y_range.end = ymax
-
-        p3.y_range.start = slymin
-        p3.y_range.end = ymax
-
-        p4.y_range.start = slymin
-        p4.y_range.end = ymax
+    def updateally(self,new):
 
         for r in self.rs:
-            r.data_source.data['y'] = newy 
+            r.glyph.y = self.labels[new] 
+        
+        self.updateaxlim()
 
-        l1.data_source.data['x'] = lineparams
-        l1.data_source.data['y'] = lineparams
-
-        l2.data_source.data['x'] = [lminlim,maxlim]
-        l2.data_source.data['y'] = lineparams
-
-        l3.data_source.data['x'] = lineparams
-        l3.data_source.data['y'] = [lminlim,maxlim]
-
-        l4.data_source.data['x'] = [lminlim,maxlim]
-        l4.data_source.data['y'] = [lminlim,maxlim]
-    
         for p in self.ps:
             p.yaxis.axis_label = self.labels[new]
 
+    def updateparam(self,attr,old,new):
+        eps,min_sample = [i.split('=')[-1] for i in new.split(', ')]
+        eps = float(eps)
+        min_sample = int(min_sample)
+        ind = np.where((self.eps==eps)&(self.min_samples==min_sample))[0][0]
+        self.source = self.sourcedict['source{0}'.format(ind)]
+        self.updateaxlim()
+        self.updatehist()
 
-plot_eps = 0.5
-def updateeps(attr,old,new):
-    epsval = float(selecteps.value)
-    minval = float(selectmin.value)
-    runind = np.where((eps==epsval) & (min_samples==minval))[0]
+    def updatehist(self):
+        newpt1 = prophist(self,'Efficiency',bins=np.linspace(0,1,20))
+        newpt1.plot_hist(x_range=(0,1),yscale='log',update=True)
+        self.pt1.mnhist.glyph.top = newpt1.hist
+
+        newpb1 = prophist(self,'Completeness',bins=np.linspace(0,1,20))
+        newpb1.plot_hist(x_range=(0,1),yscale='log',update=True)
+        self.pb1.mnhist.glyph.top = newpb1.hist
+
+        newpt2 = prophist(self,'Found Silhouette',bins=np.linspace(-1,1,40))
+        newpt2.plot_hist(x_range=(0,1),yscale='log',update=True)
+        self.pt2.mnhist.glyph.top = newpt2.hist
+
+        newpb2 = prophist(self,'Matched Silhouette',bins=np.linspace(-1,1,40))
+        newpb2.plot_hist(x_range=(0,1),yscale='log',background=self.tsil,update=True)
+        self.pb2.mnhist.glyph.top = newpb2.hist
+
+        newpt3 = prophist(self,'Found Size',bins= np.logspace(0,3,20))
+        newpt3.plot_hist(xscale='log',yscale='log',background=self.tsize,update=True)
+        self.pt3.mnhist.glyph.top = newpt3.hist
+
+        newpb3 = prophist(self,'Matched Size',bins= np.logspace(0,3,20))
+        newpb3.plot_hist(xscale='log',yscale='log',background=self.tsize,update=True)
+        self.pb3.mnhist.glyph.top = newpb3.hist
 
 
 
-r1.data_source.on_change('selected', updatehist)
-xradio.on_click(updateallx)
-yradio.on_click(updateally)
-selecteps.on_change
 
-data.close()
+
+starter = display_result(timestamp='2018-07-09.19.50.41.862297',pad=0.1)
+
+# plot_eps = 0.5
+# def updateeps(attr,old,new):
+#     epsval = float(selecteps.value)
+#     minval = float(selectmin.value)
+#     runind = np.where((eps==epsval) & (min_samples==minval))[0]
+
+
+
+
+
+# data.close()
 #toggleline.on_click()
