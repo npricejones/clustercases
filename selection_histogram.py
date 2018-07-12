@@ -68,7 +68,7 @@ class prophist(object):
         self.hist_max = max(self.hist)*1.1
 
     def plot_hist(self,x_range=(),xscale='linear',
-                  yscale='linear',background=[],
+                  yscale='linear',background=[], update=False,
                   colors=['#FFF7EA','#4C230A','#280004','#F6BD60','#A53F2B']):
         backcolor,unselectcolor,outlinecolor,mainhistcolor,mainptcolor =  colors
         if background != []:
@@ -81,27 +81,28 @@ class prophist(object):
         if x_range==():
             x_range = (np.min(self.edges),np.max(self.edges))
         if yscale=='linear':
-            ymin = 0
+            self.ymin = 0
         elif yscale=='log':
-            ymin=plot_eps+plot_eps/2.
+            self.ymin=plot_eps+plot_eps/2.
             self.hist[self.hist < plot_eps] = plot_eps
             if background != []:
                 self.backhist[self.backhist < plot_eps] = plot_eps
-        self.pt = figure(toolbar_location=None, plot_width=220, plot_height=200, x_range=x_range,
-                    y_range=(ymin, self.hist_max), min_border=10, min_border_left=50, 
-                    y_axis_location="right",x_axis_label=self.xlabel,
-                    x_axis_type=xscale,y_axis_type=yscale)
-        self.pt.xgrid.grid_line_color = None
-        #pt.yaxis.major_label_orientation = np.pi/4
-        self.pt.background_fill_color = backcolor
+        if not update:
+            self.pt = figure(toolbar_location=None, plot_width=220, plot_height=200, x_range=x_range,
+                        y_range=(self.ymin, self.hist_max), min_border=10, min_border_left=50, 
+                        y_axis_location="right",x_axis_label=self.xlabel,
+                        x_axis_type=xscale,y_axis_type=yscale)
+            self.pt.xgrid.grid_line_color = None
+            #pt.yaxis.major_label_orientation = np.pi/4
+            self.pt.background_fill_color = backcolor
 
-        if background != []:
-            self.pt.quad(bottom=ymin, left=self.edges[:-1], right=self.edges[1:], 
-                         top=self.backhist, color=unselectcolor, line_color=outlinecolor)
-        self.pt.quad(bottom=ymin, left=self.edges[:-1], right=self.edges[1:], 
-                     top=self.hist, color=mainhistcolor, line_color=outlinecolor,alpha=0.7)
-        self.h1 = self.pt.quad(bottom=ymin, left=self.edges[:-1], right=self.edges[1:], 
-                               top=self.zeros, alpha=0.6, color=mainptcolor,line_color=None)
+            if background != []:
+                self.bghist = self.pt.quad(bottom=self.ymin, left=self.edges[:-1], right=self.edges[1:], 
+                             top=self.backhist, color=unselectcolor, line_color=outlinecolor)
+            self.mnhist= self.pt.quad(bottom=self.ymin, left=self.edges[:-1], right=self.edges[1:], 
+                         top=self.hist, color=mainhistcolor, line_color=outlinecolor,alpha=0.7)
+            self.h1 = self.pt.quad(bottom=self.ymin, left=self.edges[:-1], right=self.edges[1:], 
+                                   top=self.zeros, alpha=0.6, color=mainptcolor,line_color=None)
 
 class read_results(object):
 
@@ -221,10 +222,10 @@ source.change.emit();
                  column(self.pt2.pt,self.pb2.pt),)
 
         # Activate buttons
-        self.r1.data_source.on_change('selected', self.updatehist)
-        self.r2.data_source.on_change('selected', self.updatehist)
-        self.r3.data_source.on_change('selected', self.updatehist)
-        self.r4.data_source.on_change('selected', self.updatehist)
+        self.r1.data_source.on_change('selected', self.updatetophist)
+        self.r2.data_source.on_change('selected', self.updatetophist)
+        self.r3.data_source.on_change('selected', self.updatetophist)
+        self.r4.data_source.on_change('selected', self.updatetophist)
         self.xradio.on_click(self.updateallx)
         self.yradio.on_click(self.updateally)
         self.p1.on_event(events.Reset,self.resetplots)
@@ -406,7 +407,7 @@ source.change.emit();
         self.updateaxlim()
 
 
-    def updatehist(self, attr, old, new):
+    def updatetophist(self, attr, old, new):
         inds = np.array(new['1d']['indices'])
         if len(inds) == 0 or len(inds) == self.numc:
             for i,prop in enumerate(self.proplist):
@@ -500,6 +501,34 @@ source.change.emit();
         ind = np.where((self.eps==eps)&(self.min_samples==min_sample))[0][0]
         self.source = self.sourcedict['source{0}'.format(ind)]
         self.updateaxlim()
+        self.updatehist()
+
+    def updatehist(self):
+        newpt1 = prophist(self,'Efficiency',bins=np.linspace(0,1,20))
+        newpt1.plot_hist(x_range=(0,1),yscale='log',update=True)
+        self.pt1.mnhist.glyph.top = newpt1.hist
+
+        newpb1 = prophist(self,'Completeness',bins=np.linspace(0,1,20))
+        newpb1.plot_hist(x_range=(0,1),yscale='log',update=True)
+        self.pb1.mnhist.glyph.top = newpb1.hist
+
+        newpt2 = prophist(self,'Found Silhouette',bins=np.linspace(-1,1,40))
+        newpt2.plot_hist(x_range=(0,1),yscale='log',update=True)
+        self.pt2.mnhist.glyph.top = newpt2.hist
+
+        newpb2 = prophist(self,'Matched Silhouette',bins=np.linspace(-1,1,40))
+        newpb2.plot_hist(x_range=(0,1),yscale='log',background=self.tsil,update=True)
+        self.pb2.mnhist.glyph.top = newpb2.hist
+
+        newpt3 = prophist(self,'Found Size',bins= np.logspace(0,3,20))
+        newpt3.plot_hist(xscale='log',yscale='log',background=self.tsize,update=True)
+        self.pt3.mnhist.glyph.top = newpt3.hist
+
+        newpb3 = prophist(self,'Matched Size',bins= np.logspace(0,3,20))
+        newpb3.plot_hist(xscale='log',yscale='log',background=self.tsize,update=True)
+        self.pb3.mnhist.glyph.top = newpb3.hist
+
+
 
 
 
