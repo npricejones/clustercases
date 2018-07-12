@@ -303,11 +303,6 @@ class caserun(object):
         #self.plot['spec_true_sil_neigh{0}'.format(neighbours)] = d.silhouette(self.labels_true,k=neighbours)[0]
         spec_labels_pred = -np.ones((len(seps),self.mem))
         spec_cbn = np.zeros((len(seps),self.mem))
-        spec_matchtlabs = []
-        spec_sizes_pred = []
-        spec_eff = []
-        spec_com = []
-        spec_sil = []
         for i in range(len(seps)):
             start = time.time()
             if metric =='precomputed':
@@ -330,19 +325,17 @@ class caserun(object):
                     k = len(plabs)-1
                 elif len(plabs) == 1:
                     k = 1
-                
-                #silhouette = d.silhouette(spec_labels_pred[i],k=k)[0]
-                #spec_sil.append(silhouette)
-                spec_eff.append(efficiency)
-                spec_com.append(completeness)
-                spec_matchtlabs.append(matchtlabs)
-                spec_sizes_pred.append(pcount)
+                plot['spec_match_tlabs_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = matchtlabs
+                #plot['spec_found_sil_eps{0}_min{1}_neigh{2}'.format(seps[i],smin_samples[i],k)] = d.silhouette(spec_labels_pred[i],k=k)[0]
+                plot['spec_eff_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = efficiency
+                plot['spec_com_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = completeness
+                plot['spec_found_size_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = pcount
             elif len(plabs) <= 5:
-                #spec_sil.append([])
-                spec_eff.append([])
-                spec_com.append([])
-                spec_matchtlabs.append([])
-                spec_sizes_pred.append([])
+                plot['spec_match_tlabs_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = np.array([])
+                #plot['spec_found_sil_eps{0}_min{1}_neigh{2}'.format(seps[i],smin_samples[i],k)] = np.array([])
+                plot['spec_eff_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = np.array([])
+                plot['spec_com_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = np.array([])
+                plot['spec_found_size_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = np.array([])
             core = db.core_sample_indices_
             spec_cbn[i][core] = 1
             spec_labels_pred[i] = db.labels_        
@@ -354,22 +347,12 @@ class caserun(object):
             print('I found {0} out of {1} clusters'.format(len(plabs),self.numc)) 
         self.plot['spec_labels_pred'] = spec_labels_pred
         self.plot['spec_cbn'] = spec_cbn
-        self.plot['spec_labels_match'] = spec_matchtlabs
-        self.plot['spec_efficiency'] = spec_eff
-        self.plot['spec_completeness'] = spec_com
-        self.plot['spec_silhouette'] = spec_sil
-        self.plot['spec_sizes_pred'] = spec_sizes_pred
 
         # Intialize predicted labels
 #        d = distance_metrics(self.abundances)
         #self.plot['abun_true_sil_neigh{0}'.format(neighbours)] = d.silhouette(self.labels_true,k=neighbours)[0]
         abun_labels_pred = -np.ones((len(aeps),self.mem))
         abun_cbn = np.zeros((len(aeps),self.mem))
-        abun_matchtlabs = []
-        abun_eff = []
-        abun_com = []
-        abun_sil = []
-        abun_sizes_pred = []
         for i in range(len(aeps)):
             start = time.time()
             if metric =='precomputed':
@@ -392,18 +375,17 @@ class caserun(object):
                     k = len(plabs)-1
                 elif len(plabs) == 1:
                     k = 1
- #               silhouette = d.silhouette(abun_labels_pred[i],k=k)[0]
- #               abun_sil.append(silhouette)
-                abun_eff.append(efficiency)
-                abun_com.append(completeness)
-                abun_matchtlabs.append(matchtlabs)
-                abun_sizes_pred.append(pcount)
+                plot['abun_match_tlabs_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = matchtlabs
+                #plot['abun_found_sil_eps{0}_min{1}_neigh{2}'.format(aeps[i],amin_samples[i],neighbours)] = d.silhouette(adun_labels_pred[i],k=k)[0]
+                plot['abun_eff_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = efficiency
+                plot['abun_com_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = completeness
+                plot['abun_found_size_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = pcount
             elif len(plabs) <= 5:
- #               abun_sil.append([])
-                abun_eff.append([])
-                abun_com.append([])
-                abun_matchtlabs.append([])
-                abun_sizes_pred.append(pcount)
+                plot['abun_match_tlabs_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = np.array([])
+                #plot['abun_found_sil_eps{0}_min{1}_neigh{2}'.format(aeps[i],amin_samples[i],neighbours)] = np.array([])
+                plot['abun_eff_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = np.array([])
+                plot['abun_com_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = np.array([])
+                plot['abun_found_size_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = np.array([])
             core = db.core_sample_indices_
             abun_cbn[i][core] = 1
             abun_labels_pred[i] = db.labels_        
@@ -415,11 +397,6 @@ class caserun(object):
             print('I found {0} out of {1} clusters'.format(len(plabs),self.numc)) 
         self.plot['abun_labels_pred'] = abun_labels_pred
         self.plot['abun_cbn'] = abun_cbn
-        self.plot['abun_labels_match'] = abun_matchtlabs
-        self.plot['abun_efficiency'] = abun_eff
-        self.plot['abun_completeness'] = abun_com
-        self.plot['abun_silhouette'] = abun_sil
-        self.plot['abun_sizes_pred'] = abun_sizes_pred
         self.plot.close()
         print('I saved everything in {0}'.format(self.pfname))
 
