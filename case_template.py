@@ -299,8 +299,8 @@ class caserun(object):
                                                  self.abundances)
 
         # Intialize predicted labels
-        # d = distance_metrics(self.specinfo.spectra)
-        #self.plot['spec_true_sil_neigh{0}'.format(neighbours)] = d.silhouette(self.labels_true,k=neighbours)[0]
+        d = distance_metrics(self.specinfo.spectra)
+        self.plot['spec_true_sil_neigh{0}'.format(neighbours)] = d.silhouette(self.labels_true,k=neighbours)[0]
         spec_labels_pred = -np.ones((len(seps),self.mem))
         spec_cbn = np.zeros((len(seps),self.mem))
         for i in range(len(seps)):
@@ -326,13 +326,13 @@ class caserun(object):
                 elif len(plabs) == 1:
                     k = 1
                 self.plot['spec_match_tlabs_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = matchtlabs
-                #self.plot['spec_found_sil_eps{0}_min{1}_neigh{2}'.format(seps[i],smin_samples[i],k)] = d.silhouette(spec_labels_pred[i],k=k)[0]
+                self.plot['spec_found_sil_eps{0}_min{1}_neigh{2}'.format(seps[i],smin_samples[i],neighbours)] = d.silhouette(db.labels_,k=k)[0]
                 self.plot['spec_eff_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = efficiency
                 self.plot['spec_com_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = completeness
                 self.plot['spec_found_size_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = pcount
             elif len(plabs) <= 5:
                 self.plot['spec_match_tlabs_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = np.array([])
-                #self.plot['spec_found_sil_eps{0}_min{1}_neigh{2}'.format(seps[i],smin_samples[i],k)] = np.array([])
+                self.plot['spec_found_sil_eps{0}_min{1}_neigh{2}'.format(seps[i],smin_samples[i],neighbours)] = np.array([])
                 self.plot['spec_eff_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = np.array([])
                 self.plot['spec_com_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = np.array([])
                 self.plot['spec_found_size_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = np.array([])
@@ -349,8 +349,8 @@ class caserun(object):
         self.plot['spec_cbn'] = spec_cbn
 
         # Intialize predicted labels
-#        d = distance_metrics(self.abundances)
-        #self.plot['abun_true_sil_neigh{0}'.format(neighbours)] = d.silhouette(self.labels_true,k=neighbours)[0]
+        d = distance_metrics(self.abundances)
+        self.plot['abun_true_sil_neigh{0}'.format(neighbours)] = d.silhouette(self.labels_true,k=neighbours)[0]
         abun_labels_pred = -np.ones((len(aeps),self.mem))
         abun_cbn = np.zeros((len(aeps),self.mem))
         for i in range(len(aeps)):
@@ -376,13 +376,13 @@ class caserun(object):
                 elif len(plabs) == 1:
                     k = 1
                 self.plot['abun_match_tlabs_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = matchtlabs
-                #self.plot['abun_found_sil_eps{0}_min{1}_neigh{2}'.format(aeps[i],amin_samples[i],neighbours)] = d.silhouette(adun_labels_pred[i],k=k)[0]
+                self.plot['abun_found_sil_eps{0}_min{1}_neigh{2}'.format(aeps[i],amin_samples[i],neighbours)] = d.silhouette(db.labels_,k=k)[0]
                 self.plot['abun_eff_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = efficiency
                 self.plot['abun_com_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = completeness
                 self.plot['abun_found_size_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = pcount
             elif len(plabs) <= 5:
                 self.plot['abun_match_tlabs_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = np.array([])
-                #self.plot['abun_found_sil_eps{0}_min{1}_neigh{2}'.format(aeps[i],amin_samples[i],neighbours)] = np.array([])
+                self.plot['abun_found_sil_eps{0}_min{1}_neigh{2}'.format(aeps[i],amin_samples[i],neighbours)] = np.array([])
                 self.plot['abun_eff_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = np.array([])
                 self.plot['abun_com_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = np.array([])
                 self.plot['abun_found_size_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = np.array([])
