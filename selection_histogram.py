@@ -231,7 +231,10 @@ source.change.emit();
         self.p2.on_event(events.Reset,self.resetplots)
         self.p3.on_event(events.Reset,self.resetplots)
         self.p4.on_event(events.Reset,self.resetplots)
-        self.selectparam.on_event(SelectClick,self.updateparam)
+        # self.p1.on_event(events.MouseEnter,self.updateparam)
+        # self.p2.on_event(events.MouseEnter,self.updateparam)
+        # self.p3.on_event(events.MouseEnter,self.updateparam)
+        # self.p4.on_event(events.MouseEnter,self.updateparam)
         curdoc().add_root(self.layout)
         curdoc().title = "DBSCAN on {0} with eps={1}, min_samples={2}".format(typenames[self.dtype], 
                                                                               self.epsval,self.minval)
@@ -386,7 +389,7 @@ source.change.emit();
                            options=paramchoices)
         self.JScallback()
         self.selectparam.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
-
+        self.selectparam.on_change('value',self.updateparam)
         code = '''\
         object1.visible = toggle.active
         object2.visible = toggle.active
@@ -416,7 +419,10 @@ source.change.emit();
                 prop.h1.data_source.data['top'] = hist
 
     def updateaxlim(self):
-        axlims,lineparams = findextremes(self.r1.data_source.data[self.labels[self.xradio.active]],self.r1.data_source.data[self.labels[self.yradio.active]],pad=self.pad)
+        print('Axis limits updating')
+        axlims,lineparams = findextremes(self.source.data[self.labels[self.xradio.active]],
+                                         self.source.data[self.labels[self.yradio.active]],
+                                         pad=self.pad)
         xmin,xmax,ymin,ymax=axlims
         minlim,maxlim = lineparams
 
@@ -487,9 +493,8 @@ source.change.emit();
         for p in self.ps:
             p.yaxis.axis_label = self.labels[new]
 
-    def updateparam(self,attrs):
-        print('I was called')
-        eps,min_sample = [i.split('=')[-1] for i in self.selectparam.value.split(', ')]
+    def updateparam(self,attr,old,new):
+        eps,min_sample = [i.split('=')[-1] for i in new.split(', ')]
         eps = float(eps)
         min_sample = int(min_sample)
         ind = np.where((self.eps==eps)&(self.min_samples==min_sample))[0][0]
