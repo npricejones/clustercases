@@ -325,17 +325,17 @@ class caserun(object):
                     k = len(plabs)-1
                 elif len(plabs) == 1:
                     k = 1
-                plot['spec_match_tlabs_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = matchtlabs
-                #plot['spec_found_sil_eps{0}_min{1}_neigh{2}'.format(seps[i],smin_samples[i],k)] = d.silhouette(spec_labels_pred[i],k=k)[0]
-                plot['spec_eff_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = efficiency
-                plot['spec_com_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = completeness
-                plot['spec_found_size_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = pcount
+                self.plot['spec_match_tlabs_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = matchtlabs
+                #self.plot['spec_found_sil_eps{0}_min{1}_neigh{2}'.format(seps[i],smin_samples[i],k)] = d.silhouette(spec_labels_pred[i],k=k)[0]
+                self.plot['spec_eff_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = efficiency
+                self.plot['spec_com_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = completeness
+                self.plot['spec_found_size_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = pcount
             elif len(plabs) <= 5:
-                plot['spec_match_tlabs_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = np.array([])
-                #plot['spec_found_sil_eps{0}_min{1}_neigh{2}'.format(seps[i],smin_samples[i],k)] = np.array([])
-                plot['spec_eff_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = np.array([])
-                plot['spec_com_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = np.array([])
-                plot['spec_found_size_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = np.array([])
+                self.plot['spec_match_tlabs_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = np.array([])
+                #self.plot['spec_found_sil_eps{0}_min{1}_neigh{2}'.format(seps[i],smin_samples[i],k)] = np.array([])
+                self.plot['spec_eff_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = np.array([])
+                self.plot['spec_com_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = np.array([])
+                self.plot['spec_found_size_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = np.array([])
             core = db.core_sample_indices_
             spec_cbn[i][core] = 1
             spec_labels_pred[i] = db.labels_        
@@ -375,17 +375,17 @@ class caserun(object):
                     k = len(plabs)-1
                 elif len(plabs) == 1:
                     k = 1
-                plot['abun_match_tlabs_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = matchtlabs
-                #plot['abun_found_sil_eps{0}_min{1}_neigh{2}'.format(aeps[i],amin_samples[i],neighbours)] = d.silhouette(adun_labels_pred[i],k=k)[0]
-                plot['abun_eff_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = efficiency
-                plot['abun_com_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = completeness
-                plot['abun_found_size_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = pcount
+                self.plot['abun_match_tlabs_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = matchtlabs
+                #self.plot['abun_found_sil_eps{0}_min{1}_neigh{2}'.format(aeps[i],amin_samples[i],neighbours)] = d.silhouette(adun_labels_pred[i],k=k)[0]
+                self.plot['abun_eff_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = efficiency
+                self.plot['abun_com_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = completeness
+                self.plot['abun_found_size_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = pcount
             elif len(plabs) <= 5:
-                plot['abun_match_tlabs_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = np.array([])
-                #plot['abun_found_sil_eps{0}_min{1}_neigh{2}'.format(aeps[i],amin_samples[i],neighbours)] = np.array([])
-                plot['abun_eff_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = np.array([])
-                plot['abun_com_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = np.array([])
-                plot['abun_found_size_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = np.array([])
+                self.plot['abun_match_tlabs_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = np.array([])
+                #self.plot['abun_found_sil_eps{0}_min{1}_neigh{2}'.format(aeps[i],amin_samples[i],neighbours)] = np.array([])
+                self.plot['abun_eff_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = np.array([])
+                self.plot['abun_com_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = np.array([])
+                self.plot['abun_found_size_eps{0}_min{1}'.format(aeps[i],amin_samples[i])] = np.array([])
             core = db.core_sample_indices_
             abun_cbn[i][core] = 1
             abun_labels_pred[i] = db.labels_        
