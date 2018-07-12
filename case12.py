@@ -40,13 +40,13 @@ def create_indeps(mem,degree=2,full=np.array([]),cross=np.array([])):
 
 # run parameters
 nstars = 5e4 # number of stars
-sample='allStar_chemscrub.npy' # APOGEE sample to draw from
-abundancefac = 0 # scaling factor for abundance noise
-specfac = 0 # scaling factor for spectra noise
+sample='allStar_chemscrub_teffcut.npy' # APOGEE sample to draw from
+abundancefac = 1 # scaling factor for abundance noise
+specfac = 0.01 # scaling factor for spectra noise
 suff = 'H' # element denominator
 metric = 'precomputed' # metric for distances
 fullfitkeys = ['TEFF','LOGG']
-crossfitatms = [6,7,8,11,12,13,14,16,19,20,22,23,25,26,28]
+crossfitatms = []
 
 # DBSCAN parameters
 smin_samples = np.array([2,3])#,5,10])#,15,20,50])

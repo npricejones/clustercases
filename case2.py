@@ -39,14 +39,14 @@ def create_indeps(mem,degree=2,full=np.array([]),cross=np.array([])):
         
 
 # run parameters
-nstars = 5e4 # number of stars
+nstars = 4e4 # number of stars
 sample='allStar_chemscrub.npy' # APOGEE sample to draw from
-abundancefac = 0 # scaling factor for abundance noise
-specfac = 0 # scaling factor for spectra noise
+abundancefac = 1 # scaling factor for abundance noise
+specfac = 0.01 # scaling factor for spectra noise
 suff = 'H' # element denominator
 metric = 'precomputed' # metric for distances
 fullfitkeys = ['TEFF','LOGG']
-crossfitatms = [6,7,8,11,12,13,14,16,19,20,22,23,25,26,28]
+crossfitatms = []
 
 # DBSCAN parameters
 smin_samples = np.array([2,3])#,5,10])#,15,20,50])
@@ -153,7 +153,7 @@ apodat = np.load(sample)
 # Figure out which APOGEE stars you want
 if mem > apodat.shape:
     warnings.warn('Every star in the input sample will be used to generate photospheres')
-inds = np.random.randint(0,high=len(apodat),size=mem)
+inds = np.array([0]*mem)
 d = apodat[inds]
 photosphere = np.array(list(zip(d['TEFF'],d['LOGG'])),dtype=[('TEFF','float'),('LOGG','float')])
 
@@ -168,19 +168,6 @@ specinfo.addnoise(normalgeneration,num=np.sum(numm),numprop=7214,
 
 teffs = photosphere['TEFF']
 loggs = photosphere['LOGG']
-
-crosslist = []
-for i in crossfitatms:
-    elemcol = np.where(centers.attrs['atmnums']==i)[0]
-    elem = np.repeat(centers[:,elemcol],numm)
-    crosslist.append(elem)
-
-indeps = create_indeps(mem,full=np.array([teffs,loggs]),  cross=np.array(crosslist))
-
-# Fit out photospheric parameters
-coeff_terms = np.dot(np.dot(np.linalg.inv(np.dot(indeps.T,indeps)),indeps.T),specinfo.spectra)
-residual = specinfo.spectra - np.dot(indeps,coeff_terms)
-specinfo.spectra = residual
 
 # Save spectra
 dsetname = 'normalgeneration/member_spectra_{0}'.format(clusters.timestamps[0].decode('UTF-8'))
