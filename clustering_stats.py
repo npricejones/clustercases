@@ -375,6 +375,7 @@ class distance_metrics(object):
             meminds = np.where(labels_pred==plabs[p])
             members = self.spectra[meminds]
             nearby = inds[p]
+            nonmembers=np.empty(0)
             for n in range(1,len(nearby)):
                 plab = nearby[n]
                 meminds = np.where(labels_pred==plab)
