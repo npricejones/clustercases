@@ -116,47 +116,78 @@ class display_result(read_results):
         Makes custom JavaScript callback from bokeh so you can easily swap source dictionaries.
         """
         self.callbackstr ="""
-var f = cb_obj.value;
-var data = source.data;
-var newdata = newsource.data;
-var eff = heff.data
-var com = hcom.data
-var fsi = hfsi.data
-var msi = hmsi.data
-var fsz = hfsz.data
-var msz = hmsz.data
-var neweff = newheff.data
-var newcom = newhcom.data
-var newfsi = newhfsi.data
-var newmsi = newhmsi.data
-var newfsz = newhfsz.data
-var newmsz = newhmsz.data
+var sdata = source.data;
+var ndata = newsource.data;
+var eff = heff.data;
+var com = hcom.data;
+var fsi = hfsi.data;
+var msi = hmsi.data;
+var fsz = hfsz.data;
+var msz = hmsz.data;
+var neweff = newheff.data;
+var newcom = newhcom.data;
+var newfsi = newhfsi.data;
+var newmsi = newhmsi.data;
+var newfsz = newhfsz.data;
+var newmsz = newhmsz.data;
 
-
-for (key in data) {
-    data[key] = [];
-    for (i=0;i<data[key].length;i++){
-    data[key].push(newdata[key][i]);
+for (key in ndata) {
+    sdata[key] = [];
+    for (i=0;i<ndata[key].length;i++){
+    sdata[key].push(ndata[key][i]);
     }
-};
+}
 
-for (key in eff){
-    eff[key] = []
-    com[key] = []
-    fsi[key] = []
-    msi[key] = []
-    fsz[key] = []
-    msz[key] = []
-    for (i=0;i<eff[key].length;i++){
+for (key in neweff) {
+    eff[key] = [];
+    for (i=0;i<neweff[key].length;i++){
     eff[key].push(neweff[key][i]);
+    }
+}
+
+for (key in newcom) {
+    com[key] = [];
+    for (i=0;i<newcom[key].length;i++){
     com[key].push(newcom[key][i]);
+    }
+}
+
+for (key in newfsi) {
+    fsi[key] = [];
+    for (i=0;i<newfsi[key].length;i++){
     fsi[key].push(newfsi[key][i]);
+    }
+}
+
+for (key in newmsi) {
+    msi[key] = [];
+    for (i=0;i<newmsi[key].length;i++){
     msi[key].push(newmsi[key][i]);
+    }
+}
+
+for (key in newfsz) {
+    fsz[key] = [];
+    for (i=0;i<newfsz[key].length;i++){
     fsz[key].push(newfsz[key][i]);
+    }
+}
+
+for (key in newmsz) {
+    msz[key] = [];
+    for (i=0;i<newmsz[key].length;i++){
     msz[key].push(newmsz[key][i]);
-    }  
-};
+    }
+}
+
 source.change.emit();
+heff.change.emit();
+hcom.change.emit();
+hfsi.change.emit();
+hmsi.change.emit();
+hfsz.change.emit();
+hmsz.change.emit();
+
 """
 
     def layout_plots(self):
@@ -435,7 +466,6 @@ source.change.emit();
         self.sourcedict['newhmsi'] = self.hsource_matched_silhouette
         self.sourcedict['newhfsz'] = self.hsource_found_size
         self.sourcedict['newhmsz'] = self.hsource_matched_size
-        print(self.sourcedict)
 
 
 
@@ -449,6 +479,7 @@ source.change.emit();
         paramchoices = []
         for i in range(len(self.eps)):
             paramchoices.append('eps={0}, min={1}'.format(self.eps[i],self.min_samples[i]))
+        
         self.selectparam = Select(title="parameter values", value=paramchoices[0], 
                            options=paramchoices)
         self.selectparam.on_change('value',self.updateparam)
@@ -582,6 +613,9 @@ source.change.emit();
         self.sourcedict['newsource'] = self.source
         self.updateaxlim()
         self.histograms(update=True)
+        self.JScallback()
+        print(self.sourcedict)
+        self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
 
 
 starter = display_result(case=7,timestamp='2018-07-09.19.50.41.862297',pad=0.1)
