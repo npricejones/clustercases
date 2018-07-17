@@ -69,7 +69,11 @@ class read_results(object):
         self.min_samples = self.data.attrs['{0}_min'.format(self.dtype)][:]
         self.eps = self.data.attrs['{0}_eps'.format(self.dtype)][:]
 
-    def read_run_data(self,eps,min_sample,update=False):
+    def read_run_data(self,eps=None,min_sample=None,update=False):
+        print('Updating the source')
+        if not eps or not min_sample:
+            eps = self.eps[0]
+            min_sample = self.min_samples[0]
         self.epsval = eps
         self.minval = min_sample
         self.matchtlabs = self.data['{0}_match_tlabs_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
@@ -87,8 +91,9 @@ class read_results(object):
         self.datadict = {'Efficiency':self.eff,'Completeness':self.com,
                          'Found Silhouette':self.fsil,'Matched Silhouette':self.msil,
                          'Found Size':self.fsize,'Matched Size':self.msize}
+        self.source=ColumnDataSource(data=self.datadict)
         if not update:
-            self.source=ColumnDataSource(data=self.datadict)
+            self.sourcedict = {'source':self.source,'newsource':self.source}
 
 class display_result(read_results):
 
@@ -114,6 +119,19 @@ class display_result(read_results):
 var f = cb_obj.value;
 var data = source.data;
 var newdata = newsource.data;
+var eff = heff.data
+var com = hcom.data
+var fsi = hfsi.data
+var msi = hmsi.data
+var fsz = hfsz.data
+var msz = hmsz.data
+var neweff = newheff.data
+var newcom = newhcom.data
+var newfsi = newhfsi.data
+var newmsi = newhmsi.data
+var newfsz = newhfsz.data
+var newmsz = newhmsz.data
+
 
 for (key in data) {
     data[key] = [];
@@ -121,10 +139,25 @@ for (key in data) {
     data[key].push(newdata[key][i]);
     }
 };
+
+for (key in eff){
+    eff[key] = []
+    com[key] = []
+    fsi[key] = []
+    msi[key] = []
+    fsz[key] = []
+    msz[key] = []
+    for (i=0;i<eff[key].length;i++){
+    eff[key].push(neweff[key][i]);
+    com[key].push(newcom[key][i]);
+    fsi[key].push(newfsi[key][i]);
+    msi[key].push(newmsi[key][i]);
+    fsz[key].push(newfsz[key][i]);
+    msz[key].push(newmsz[key][i]);
+    }  
+};
 source.change.emit();
 """
-
-
 
     def layout_plots(self):
         self.read_base_data()
@@ -134,7 +167,8 @@ source.change.emit();
         self.buttons()
         # Here's where you decide the distribution of plots
         self.layout = row(column(widgetbox(self.toggleline),widgetbox(self.xradio,name='x-axis'),
-                        widgetbox(self.yradio,name='y-axis'),widgetbox(self.selectparam)),
+                        widgetbox(self.yradio,name='y-axis'),widgetbox(self.selectparam),
+                        widgetbox(self.loadbutton)),
                  column(Tabs(tabs=self.panels,width=self.sqside),row(self.p_found_size,self.p_matched_size)),
                  column(self.p_efficiency,self.p_found_silhouette),
                  column(self.p_completeness,self.p_matched_silhouette),)
@@ -297,22 +331,24 @@ source.change.emit();
                   yscale='linear',background=[], update=False):
         hist_name = key.lower().replace(' ','_')
         arr = self.source.data[key] 
+        setattr(self,'arr_{0}'.format(hist_name),arr)
         hist, edges = np.histogram(arr, bins=bins)
         hist = hist.astype('float')
-        setattr(self,'hist_{0}'.format(hist_name)) = hist
+        setattr(self,'hist_{0}'.format(hist_name),hist)
+        setattr(self,'edges_{0}'.format(hist_name),edges)
         zeros = np.zeros(len(edges)-1)
-        setattr(self,'zeros_{0}'.format(hist_name)) = zeros
+        setattr(self,'zeros_{0}'.format(hist_name),zeros)
         hist_max = max(hist)*1.1
-        setattr(self,'hist_max_{0}'.format(hist_name)) = hist_max
+        setattr(self,'hist_max_{0}'.format(hist_name),hist_max)
 
         if background != []:
             backhist = np.histogram(background,bins=edges)[0]
             backhist = backhist.astype('float')
-            setattr(self,'bhist_{0}'.format(hist_name)) = backhist
+            setattr(self,'bhist_{0}'.format(hist_name),backhist)
             backmax = np.max(backhist)*1.1
             if backmax > hist_max:
                 hist_max = backmax
-                setattr(self,'hist_max_{0}'.format(hist_name)) = hist_max
+                setattr(self,'hist_max_{0}'.format(hist_name),hist_max)
         ymax = hist_max
         if x_range==():
             x_range = (np.min(edges),np.max(edges))
@@ -321,23 +357,25 @@ source.change.emit();
         elif yscale=='log':
             ymin=plot_eps+plot_eps/2.
             hist[hist < plot_eps] = plot_eps
+            setattr(self,'hist_{0}'.format(hist_name),hist)
             if background != []:
                 backhist[backhist < plot_eps] = plot_eps
-                setattr(self,'bhist_{0}'.format(hist_name)) = backhist
-        setattr(self,'ymin_{0}'.format(hist_name)) = ymin
+                setattr(self,'bhist_{0}'.format(hist_name),backhist)
+        setattr(self,'ymin_{0}'.format(hist_name),ymin)
         histsource = {'mainhist':hist,'left':edges[:-1],'right':edges[1:],
-                      'bottom':ymin,'zeros':zeros,'selected':zeros}
+                      'bottom':ymin*np.ones(len(hist)),'zeros':zeros,'selected':zeros}
         if background != []:
             histsource['backhist'] = backhist
-        setattr(self,'hsource_{0}'.format(hist_name)) = histsource
+        histsource = ColumnDataSource(data=histsource)
+        setattr(self,'hsource_{0}'.format(hist_name),histsource)
 
         if not update:
             p = figure(toolbar_location=None, plot_width=220, plot_height=200,
                         x_range=x_range,y_range=(ymin, hist_max), min_border=10, 
                         min_border_left=50, y_axis_location="right",
-                        x_axis_label=xlabel,x_axis_type=xscale,
+                        x_axis_label=key,x_axis_type=xscale,
                         y_axis_type=yscale)
-            setattr(self,'p_{0}'.format(hist_name)) = p
+            setattr(self,'p_{0}'.format(hist_name),p)
             p.xgrid.grid_line_color = None
             #pt.yaxis.major_label_orientation = np.pi/4
             p.background_fill_color = self.bcolor
@@ -355,28 +393,50 @@ source.change.emit();
                          top='selected', alpha=0.6, 
                          source = getattr(self,'hsource_{0}'.format(hist_name)),
                          color=self.maincolor,line_color=None)
+            setattr(self,'h_{0}'.format(hist_name),h1)
+
 
     def histograms(self,nbins=20,update=False):
-        make_hist('Efficiency',bins=np.linspace(0,1,nbins),
-                  x_range=(0,1),yscale='log')
-        make_hist('Completeness',bins=np.linspace(0,1,nbins),
-                  x_range=(0,1),yscale='log')
-        make_hist('Found Silhouette',bins=np.linspace(-1,1,2*nbins),
-                  x_range=(0,1),yscale='log')
-        make_hist('Matched Silhouette',bins=np.linspace(-1,1,2*nbins),
-                  x_range=(0,1),yscale='log',background=self.tsil)
-        maxsize = np.max(np.array([np.max(self.source['Found Size']),
-                                   np.max(self.source['Matched Size']),
+        print('histograms')
+        self.make_hist('Efficiency',bins=np.linspace(0,1,nbins),
+                  x_range=(0,1),yscale='log',update=update)
+        self.make_hist('Completeness',bins=np.linspace(0,1,nbins),
+                  x_range=(0,1),yscale='log',update=update)
+        self.make_hist('Found Silhouette',bins=np.linspace(-1,1,2*nbins),
+                  x_range=(0,1),yscale='log',update=update)
+        self.make_hist('Matched Silhouette',bins=np.linspace(-1,1,2*nbins),
+                  x_range=(0,1),yscale='log',background=self.tsil,
+                  update=update)
+        maxsize = np.max(np.array([np.max(self.source.data['Found Size']),
+                                   np.max(self.source.data['Matched Size']),
                                    np.max(self.tsize)]))
-        make_hist('Found Size',bins=np.logspace(0,maxsize,nbins),
-                  xscale='log',yscale='log',background=self.tsize)
-        make_hist('Found Size',bins=np.logspace(0,maxsize,nbins),
-                  xscale='log',yscale='log',background=self.tsize)
-        self.histlist = [self.hsource_efficiency,self.hsource_completeness,
-                         self.hsource_found_silhouette,
-                         self.hsource_matched_silhouette,
-                         self.found_size,self.matched_size]
-        self.proplist = [self.pt1,self.pb1,self.pt2,self.pb2,self.pt3,self.pb3]
+        maxsize = np.log10(maxsize)
+        self.make_hist('Found Size',bins=np.logspace(0,maxsize,nbins),
+                  xscale='log',yscale='log',background=self.tsize,
+                  update=update)
+        self.make_hist('Matched Size',bins=np.logspace(0,maxsize,nbins),
+                  xscale='log',yscale='log',background=self.tsize,
+                  update=update)
+        if not update:
+            self.histlist = [self.h_efficiency,self.h_completeness,
+                             self.h_found_silhouette,
+                             self.h_matched_silhouette,
+                             self.h_found_size,self.h_matched_size]
+
+            self.sourcedict['heff'] = self.hsource_efficiency
+            self.sourcedict['hcom'] = self.hsource_completeness
+            self.sourcedict['hfsi'] = self.hsource_found_silhouette
+            self.sourcedict['hmsi'] = self.hsource_matched_silhouette
+            self.sourcedict['hfsz'] = self.hsource_found_size
+            self.sourcedict['hmsz'] = self.hsource_matched_size
+        self.sourcedict['newheff'] = self.hsource_efficiency
+        self.sourcedict['newhcom'] = self.hsource_completeness
+        self.sourcedict['newhfsi'] = self.hsource_found_silhouette
+        self.sourcedict['newhmsi'] = self.hsource_matched_silhouette
+        self.sourcedict['newhfsz'] = self.hsource_found_size
+        self.sourcedict['newhmsz'] = self.hsource_matched_size
+        print(self.sourcedict)
+
 
 
     def buttons(self):
@@ -389,11 +449,13 @@ source.change.emit();
         paramchoices = []
         for i in range(len(self.eps)):
             paramchoices.append('eps={0}, min={1}'.format(self.eps[i],self.min_samples[i]))
-        self.selectparam = Select(title="parameter values", value=paramchoices[self.goodind], 
+        self.selectparam = Select(title="parameter values", value=paramchoices[0], 
                            options=paramchoices)
-        self.JScallback()
         self.selectparam.on_change('value',self.updateparam)
-        self.selectparam.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
+        self.loadbutton = Button(label='Load New Data', button_type='success')
+        self.JScallback()
+        self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
+        
         code = '''\
         object1.visible = toggle.active
         object2.visible = toggle.active
@@ -405,22 +467,34 @@ source.change.emit();
         linecb.args = {'toggle': self.toggleline, 'object1': self.l1, 'object2': self.l2, 'object3': self.l3, 'object4': self.l4}
 
     def resetplots(self,attrs):
-        for i,prop in enumerate(self.proplist):
-            prop.h1.data_source.data['top'] = prop.zeros
+        if 'histkeys' not in dir(self):
+            histkeys = self.datadict.keys()
+            self.histkeys = np.array([key.lower().replace(' ','_') for key in histkeys])
+        for key in self.histkeys:
+            h = getattr(self,'h_{0}'.format(key))
+            h.glyph.top = 'zeros'
         self.updateaxlim()
 
 
     def updatetophist(self, attr, old, new):
+        if 'histkeys' not in dir(self):
+            histkeys = self.datadict.keys()
+            self.histkeys = np.array([key.lower().replace(' ','_') for key in histkeys])
         inds = np.array(new['1d']['indices'])
         if len(inds) == 0 or len(inds) == self.numc:
-            for i,prop in enumerate(self.proplist):
-                prop.h1.data_source.data['top'] = prop.zeros
+            for key in self.histkeys:
+                h = getattr(self,'h_{0}'.format(key))
+                h.glyph.top = 'zeros'
         else:
             neg_inds = np.ones_like(self.source.data['Efficiency'], dtype=np.bool)
             neg_inds[inds] = False
-            for i,prop in enumerate(self.proplist):
-                hist = (np.histogram(prop.arr[inds],bins=prop.edges)[0]).astype('float')
-                prop.h1.data_source.data['top'] = hist
+            for key in self.histkeys:
+                h = getattr(self,'h_{0}'.format(key))
+                arr = getattr(self,'arr_{0}'.format(key))
+                edges = getattr(self,'edges_{0}'.format(key))
+                hist = (np.histogram(arr[inds],bins=edges)[0]).astype('float')
+                h.data_source.data['selected'] = hist
+                h.glyph.top = 'selected'
 
     def updateaxlim(self):
         print('Axis limits updating')
@@ -498,17 +572,16 @@ source.change.emit();
             p.yaxis.axis_label = self.labels[new]
 
     def updateparam(self,attr,old,new):
+        print('parameters updated')
         eps,min_sample = [i.split('=')[-1] for i in new.split(', ')]
         eps = float(eps)
         min_sample = int(min_sample)
-        self.oldsource = copy.deepcopy(self.source)
         # read in new self.source
-        ind = np.where((self.eps==eps)&(self.min_samples==min_sample))[0][0]
-        self.source = self.sourcedict['source{0}'.format(ind)]
+        self.read_run_data(eps,min_sample,update=True)
+        self.source = ColumnDataSource(data=self.datadict)
+        self.sourcedict['newsource'] = self.source
         self.updateaxlim()
-        self.updatehist()
-
-    def updatehist(self):
+        self.histograms(update=True)
 
 
 starter = display_result(case=7,timestamp='2018-07-09.19.50.41.862297',pad=0.1)
