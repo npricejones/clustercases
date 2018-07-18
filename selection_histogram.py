@@ -88,7 +88,7 @@ class read_results(object):
         self.goodinds = np.where(self.numcs > 3)
         if len(self.goodinds[0]) > 0:
             self.goodind = self.goodinds[0][0]
-        elif len(goodinds[0])==0:
+        elif len(self.goodinds[0])==0:
             self.allbad = True
         self.min_samples = self.data.attrs['{0}_min'.format(self.dtype)][:]
         self.eps = self.data.attrs['{0}_eps'.format(self.dtype)][:]
