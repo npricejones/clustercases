@@ -102,6 +102,7 @@ nstars = 1e3 # number of stars
 sample='allStar_chemscrub.npy' # APOGEE sample to draw from
 abundancefac = 0 # scaling factor for abundance noise
 specfac = 0 # scaling factor for spectra noise
+centerfac = 1
 suff = 'H' # element denominator
 metric = 'precomputed' # metric for distances
 fullfitkeys = ['TEFF','LOGG'] # keys for the full fit
@@ -130,16 +131,17 @@ seps = np.repeat(seps,ssamples)
 class caserun(object):
 
     def __init__(self,nstars=nstars,sample=sample,abundancefac=abundancefac,
-                 spreadchoice=spreadchoice,specfac=specfac,
+                 spreadchoice=spreadchoice,specfac=specfac,centerfac=centerfac,
+                 centerspr=spreads,genfn=choosestruct,
                  fullfitkeys=fullfitkeys,fullfitatms=fullfitatms,
                  crossfitkeys=crossfitkeys,crossfitatms=crossfitatms,
                  seps=seps,smin_samples=smin_samples,
                  aeps=aeps,amin_samples=amin_samples,
                  metric='precomputed',neighbours = 20,phvary=True,
-                 fitspec=True,case='7'):
+                 fitspec=True,case='7',normeps=False):
         self.case = case
         start = time.time()
-        self.create_clusters(nstars,sample)
+        self.create_clusters(nstars,sample,genfn,centerfac,centerspr)
         end = time.time()
         print('Made clusters in {0} seconds'.format(end-start))
         start = time.time()
@@ -153,12 +155,12 @@ class caserun(object):
             print('Fit stars in {0} seconds'.format(end-start))
         self.plotfile()
         start = time.time()
-        self.clustering(seps,aeps,smin_samples,amin_samples,metric='precomputed',neighbours = 20)
+        self.clustering(seps,aeps,smin_samples,amin_samples,metric='precomputed',neighbours = 20,normeps=normeps)
         end = time.time()
         print('Finished desired clustering in {0} seconds'.format(end-start))
 
 
-    def create_clusters(self,nstars,sample):
+    def create_clusters(self,nstars,sample,genfn,centerfac,centerspr):
         self.nstars = nstars
         self.sample = sample
         # generate number of stars in a each cluster according to the CMF
@@ -179,29 +181,42 @@ class caserun(object):
         self.labels_true = np.repeat(self.labels,self.numm,axis=0)
 
         # begin cluster generation by creating centers
-        self.clusters = makeclusters(genfn=choosestruct,instances=1,
-                                     numcluster=self.numc,maxcores=1,
-                                     sample=self.sample,
-                                     elems=np.array([6,7,8,11,12,13,14,16,
-                                                     19,20,22,23,25,26,28]),
-                                     propkeys=['C_{0}'.format(suff),
-                                               'N_{0}'.format(suff),
-                                               'O_{0}'.format(suff),
-                                               'NA_{0}'.format(suff),
-                                               'MG_{0}'.format(suff),
-                                               'AL_{0}'.format(suff),
-                                               'SI_{0}'.format(suff),
-                                               'S_{0}'.format(suff),
-                                               'K_{0}'.format(suff),
-                                               'CA_{0}'.format(suff),
-                                               'TI_{0}'.format(suff),
-                                               'V_{0}'.format(suff),
-                                               'MN_{0}'.format(suff),
-                                               'FE_H','NI_{0}'.format(suff)])
+        if genfn.__name__=='choosestruct':
+            self.clusters = makeclusters(genfn=choosestruct,instances=1,
+                                         numcluster=self.numc,maxcores=1,
+                                         sample=self.sample,
+                                         elems=np.array([6,7,8,11,12,13,
+                                                         14,16,19,20,22,
+                                                         23,25,26,28]),
+                                         propkeys=['C_{0}'.format(suff),
+                                                   'N_{0}'.format(suff),
+                                                   'O_{0}'.format(suff),
+                                                   'NA_{0}'.format(suff),
+                                                   'MG_{0}'.format(suff),
+                                                   'AL_{0}'.format(suff),
+                                                   'SI_{0}'.format(suff),
+                                                   'S_{0}'.format(suff),
+                                                   'K_{0}'.format(suff),
+                                                   'CA_{0}'.format(suff),
+                                                   'TI_{0}'.format(suff),
+                                                   'V_{0}'.format(suff),
+                                                   'MN_{0}'.format(suff),
+                                                   'FE_H',
+                                                   'NI_{0}'.format(suff)])
 
-        # Grab data file to save more stuff in it
+        if genfn.__name__=='normalgeneration':
+            self.clusters = makeclusters(genfn=normalgeneration,instances=1,
+                                         numcluster=self.numc,maxcores=1,
+                                         elems=np.array([6,7,8,11,12,13,
+                                                         14,16,19,20,22,
+                                                         23,25,26,28]),
+                                         centers=np.zeros(15),
+                                         stds=np.ones(15)*centerspr)
         self.datafile = h5py.File(self.clusters.synfilename,'r+')
         self.centers = self.datafile['center_abundances_'+self.clusters.timestamps[0].decode('UTF-8')]
+
+        self.centers[:]*=centerfac
+
         # Save true labels
         dsetname = 'normalgeneration/labels_true_{0}'.format(self.clusters.timestamps[0].decode('UTF-8'))
         self.datafile[dsetname] = self.labels_true
@@ -284,7 +299,7 @@ class caserun(object):
         tcount,tlabs = membercount(self.labels_true)
         self.plot['true_size'] = tcount
 
-    def clustering(self,seps,aeps,smin_samples,amin_samples,metric='precomputed',neighbours = 20):
+    def clustering(self,seps,aeps,smin_samples,amin_samples,metric='precomputed',neighbours = 20,normeps=False):
 
         self.plot.attrs['spec_min'] = smin_samples
         self.plot.attrs['spec_eps'] = seps
@@ -295,8 +310,10 @@ class caserun(object):
         if metric=='precomputed':
             spec_distances = euclidean_distances(self.specinfo.spectra, 
                                                  self.specinfo.spectra)
+            typspec = np.median(spec_distances)
             abun_distances = euclidean_distances(self.abundances,
                                                  self.abundances)
+            typabun = np.median(abun_distances)
 
         # Intialize predicted labels
         d = distance_metrics(self.specinfo.spectra)
@@ -306,9 +323,14 @@ class caserun(object):
         for i in range(len(seps)):
             start = time.time()
             if metric =='precomputed':
-                db = DBSCAN(min_samples=smin_samples[i],
-                            eps=seps[i],
-                            metric='precomputed').fit(spec_distances)
+                if not normeps:
+                    db = DBSCAN(min_samples=smin_samples[i],
+                                eps=seps[i],
+                                metric='precomputed').fit(spec_distances)
+                elif normeps:
+                    db = DBSCAN(min_samples=smin_samples[i],
+                                eps=seps[i]*typspec,
+                                metric='precomputed').fit(spec_distances)
             elif metric!='precomputed':
                 db = DBSCAN(min_samples=smin_samples[i],
                             eps=seps[i],
@@ -356,9 +378,14 @@ class caserun(object):
         for i in range(len(aeps)):
             start = time.time()
             if metric =='precomputed':
-                db = DBSCAN(min_samples=amin_samples[i],
-                            eps=aeps[i],
-                            metric='precomputed').fit(abun_distances)
+                if not normeps:
+                    db = DBSCAN(min_samples=amin_samples[i],
+                                eps=aeps[i],
+                                metric='precomputed').fit(abun_distances)
+                elif normeps:
+                    db = DBSCAN(min_samples=amin_samples[i],
+                                eps=aeps[i]*typabun,
+                                metric='precomputed').fit(abun_distances)
             elif metric!='precomputed':
                 db = DBSCAN(min_samples=amin_samples[i],
                             eps=aeps[i],
