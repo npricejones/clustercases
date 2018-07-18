@@ -4,8 +4,8 @@ from case_template import *
 nstars = 1e4 # number of stars                                                 
 sample='allStar_chemscrub.npy' # APOGEE sample to draw from                    
 abundancefac = 1 # scaling factor for abundance noise                          
-specfac = 0.01 # scaling factor for spectra noise                              
-centerfac = 2
+specfac = 0 # scaling factor for spectra noise 
+centerfac = 3                             
 suff = 'H' # element denominator                                               
 metric = 'precomputed' # metric for distances                                  
 fullfitkeys = ['TEFF','LOGG'] # keys for the full fit                          
@@ -30,11 +30,13 @@ amin_samples = np.tile(amin_samples,len(aeps))
 aeps = np.repeat(aeps,asamples)
 seps = np.repeat(seps,ssamples)
 
-case8 = caserun(nstars=nstars,sample=sample,abundancefac=abundancefac,
+case24 = caserun(nstars=nstars,sample=sample,abundancefac=abundancefac,
                  spreadchoice=spreadchoice,specfac=specfac,
+                 centerfac = centerfac, centerspr = spreads,
+                 genfn = normalgeneration,
                  fullfitkeys=fullfitkeys,fullfitatms=fullfitatms,
                  crossfitkeys=crossfitkeys,crossfitatms=crossfitatms,
                  seps=seps,smin_samples=smin_samples,
                  aeps=aeps,amin_samples=amin_samples,
                  metric='precomputed',neighbours = 20,phvary=True,
-                 fitspec=True,case='8',centerfac=centerfac,normeps=True)
+                 fitspec=True,case='24',normeps=True)
