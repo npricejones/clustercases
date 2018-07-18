@@ -28,7 +28,10 @@ TOOLS="pan,wheel_zoom,box_zoom,box_select,lasso_select,reset,save"
 
 resultpath = '/Users/nat/chemtag/clustercases/'
 
+# Make additions here if windows ever used
+
 typenames = {'spec':'spectra','abun':'abundances'}
+nametypes = {'spectra':'spec','abundances':'abun'}
 
 zp = {'Efficiency':5e-3,'Completeness':5e-3,'Found Silhouette':5e-3,'Matched Silhouette':5e-3,'Found Size':0.5,'Matched Size':0.5}
 lzp=1e-3
@@ -57,25 +60,34 @@ class read_results(object):
         self.case = case
         self.timestamp = timestamp
 
-    def read_base_data(self,datatype=None,neighbours=20):
+    def read_base_data(self,datatype=None,case=None,timestamp=None,neighbours=20):
         self.data = h5py.File('case{0}_{1}.hdf5'.format(self.case,self.timestamp),'r+')
         if datatype:
             self.dtype = datatype
+        if case:
+            self.case = case
+        if timestamp:
+            self.timestamp = timestamp
         #self.chemspace = self.data['{0}'.format(self.dtype)][:]
         #self.labels_true = self.data['labels_true'][:]
         self.tsize = self.data['true_size'][:]
         self.tsil = self.data['{0}_true_sil_neigh{1}'.format(self.dtype,neighbours)][:]
+        # scrub nans
+        self.tsil[np.isnan(self.tsil)]=-1
         #self.labels_pred = self.data['{0}_labels_pred'.format(self.dtype)][:]
         self.min_samples = self.data.attrs['{0}_min'.format(self.dtype)][:]
         self.eps = self.data.attrs['{0}_eps'.format(self.dtype)][:]
+        self.epsval = self.eps[0]
+        self.minval = self.min_samples[0]
+        self.paramchoices = []
+        for i in range(len(self.eps)):
+            self.paramchoices.append('eps={0}, min={1}'.format(self.eps[i],self.min_samples[i]))
 
     def read_run_data(self,eps=None,min_sample=None,update=False):
-        print('Updating the source')
-        if not eps or not min_sample:
-            eps = self.eps[0]
-            min_sample = self.min_samples[0]
-        self.epsval = eps
-        self.minval = min_sample
+        if eps:
+            self.epsval = eps
+        if min_sample:
+            self.minval = min_sample
         self.matchtlabs = self.data['{0}_match_tlabs_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
         if len(self.matchtlabs) > 0:
             self.msil = self.tsil[self.matchtlabs]
@@ -88,6 +100,11 @@ class read_results(object):
         self.com = self.data['{0}_com_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
         self.fsize = self.data['{0}_found_size_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
         self.numc = len(self.fsize)
+        # Scrub nans
+        self.msil[np.isnan(self.msil)] = -1
+        self.fsil[np.isnan(self.fsil)] = -1
+        self.eff[np.isnan(self.eff)] = 0
+        self.com[np.isnan(self.com)] = 0
         self.datadict = {'Efficiency':self.eff,'Completeness':self.com,
                          'Found Silhouette':self.fsil,'Matched Silhouette':self.msil,
                          'Found Size':self.fsize,'Matched Size':self.msize}
@@ -198,7 +215,8 @@ hmsz.change.emit();
         self.buttons()
         # Here's where you decide the distribution of plots
         self.layout = row(column(widgetbox(self.toggleline),widgetbox(self.xradio,name='x-axis'),
-                        widgetbox(self.yradio,name='y-axis'),widgetbox(self.selectparam),
+                        widgetbox(self.yradio,name='y-axis'),widgetbox(self.selectdtype),
+                        widgetbox(self.selectparam),
                         widgetbox(self.loadbutton)),
                  column(Tabs(tabs=self.panels,width=self.sqside),row(self.p_found_size,self.p_matched_size)),
                  column(self.p_efficiency,self.p_found_silhouette),
@@ -428,7 +446,6 @@ hmsz.change.emit();
 
 
     def histograms(self,nbins=20,update=False):
-        print('histograms')
         self.make_hist('Efficiency',bins=np.linspace(0,1,nbins),
                   x_range=(0,1),yscale='log',update=update)
         self.make_hist('Completeness',bins=np.linspace(0,1,nbins),
@@ -438,14 +455,14 @@ hmsz.change.emit();
         self.make_hist('Matched Silhouette',bins=np.linspace(-1,1,2*nbins),
                   x_range=(0,1),yscale='log',background=self.tsil,
                   update=update)
-        maxsize = np.max(np.array([np.max(self.source.data['Found Size']),
-                                   np.max(self.source.data['Matched Size']),
-                                   np.max(self.tsize)]))
-        maxsize = np.log10(maxsize)
-        self.make_hist('Found Size',bins=np.logspace(0,maxsize,nbins),
+        self.maxsize = np.max(np.array([np.max(self.source.data['Found Size']),
+                                        np.max(self.source.data['Matched Size']),
+                                        np.max(self.tsize)]))
+        self.maxsize = np.log10(self.maxsize)
+        self.make_hist('Found Size',bins=np.logspace(0,self.maxsize,nbins),
                   xscale='log',yscale='log',background=self.tsize,
                   update=update)
-        self.make_hist('Matched Size',bins=np.logspace(0,maxsize,nbins),
+        self.make_hist('Matched Size',bins=np.logspace(0,self.maxsize,nbins),
                   xscale='log',yscale='log',background=self.tsize,
                   update=update)
         if not update:
@@ -476,12 +493,13 @@ hmsz.change.emit();
         self.xradio = RadioButtonGroup(labels=self.labels, active=0,name='x-axis')
         self.yradio = RadioButtonGroup(labels=self.labels, active=1,name='y-axis')
 
-        paramchoices = []
-        for i in range(len(self.eps)):
-            paramchoices.append('eps={0}, min={1}'.format(self.eps[i],self.min_samples[i]))
+        self.selectdtype = Select(title='data type',value='spectra',options=list(nametypes.keys()))
+        self.selectdtype.on_change('value',self.updatedtype)
+
         
-        self.selectparam = Select(title="parameter values", value=paramchoices[0], 
-                           options=paramchoices)
+        
+        self.selectparam = Select(title="parameter values", value=self.paramchoices[0], 
+                           options=self.paramchoices)
         self.selectparam.on_change('value',self.updateparam)
         self.loadbutton = Button(label='Load New Data', button_type='success')
         self.JScallback()
@@ -528,7 +546,6 @@ hmsz.change.emit();
                 h.glyph.top = 'selected'
 
     def updateaxlim(self):
-        print('Axis limits updating')
         axlims,lineparams = findextremes(self.source.data[self.labels[self.xradio.active]],
                                          self.source.data[self.labels[self.yradio.active]],
                                          pad=self.pad)
@@ -550,6 +567,7 @@ hmsz.change.emit();
         else:
             slymin = ymin
 
+
         self.p1.x_range.start=xmin
         self.p1.x_range.end=xmax
         self.p1.y_range.start=ymin
@@ -569,6 +587,10 @@ hmsz.change.emit();
         self.p4.x_range.end = xmax
         self.p4.y_range.start = slymin
         self.p4.y_range.end = ymax
+
+        print(self.maxsize)
+        self.p_found_size.x_range.end = self.maxsize
+        self.p_matched_size.x_range.end = self.maxsize
 
         self.l1.data_source.data['x'] = lineparams
         self.l1.data_source.data['y'] = lineparams
@@ -603,7 +625,7 @@ hmsz.change.emit();
             p.yaxis.axis_label = self.labels[new]
 
     def updateparam(self,attr,old,new):
-        print('parameters updated')
+        self.loadbutton.button_type='warning'
         eps,min_sample = [i.split('=')[-1] for i in new.split(', ')]
         eps = float(eps)
         min_sample = int(min_sample)
@@ -611,12 +633,31 @@ hmsz.change.emit();
         self.read_run_data(eps,min_sample,update=True)
         self.source = ColumnDataSource(data=self.datadict)
         self.sourcedict['newsource'] = self.source
-        self.updateaxlim()
         self.histograms(update=True)
+        self.updateaxlim()
         self.JScallback()
-        print(self.sourcedict)
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
+        self.loadbutton.button_type='success'
 
+    def updatedtype(self,attr,old,new):
+        self.loadbutton.button_type='warning'
+        dtype = nametypes[new]
+        self.read_base_data(datatype=dtype)
+        self.read_run_data(update=False)
+        self.selectparam.options = self.paramchoices
+        self.selectparam.value = self.paramchoices[0]
+        self.source = ColumnDataSource(data=self.datadict)
+        self.histograms(update=True)
+        self.updateaxlim()
+        self.sourcedict['heff'] = self.hsource_efficiency
+        self.sourcedict['hcom'] = self.hsource_completeness
+        self.sourcedict['hfsi'] = self.hsource_found_silhouette
+        self.sourcedict['hmsi'] = self.hsource_matched_silhouette
+        self.sourcedict['hfsz'] = self.hsource_found_size
+        self.sourcedict['hmsz'] = self.hsource_matched_size
+        self.JScallback()
+        self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
+        self.loadbutton.button_type='success'
 
 starter = display_result(case=7,timestamp='2018-07-09.19.50.41.862297',pad=0.1)
 
@@ -625,15 +666,3 @@ goodcasefiles = ['case8_2018-07-12.17.56.09.902178.hdf5',
                  'case4_2018-07-12.18.01.18.731772.hdf5',
                  'case7_2018-07-09.19.50.41.862297.hdf5']
 
-# plot_eps = 0.5
-# def updateeps(attr,old,new):
-#     epsval = float(selecteps.value)
-#     minval = float(selectmin.value)
-#     runind = np.where((eps==epsval) & (min_samples==minval))[0]
-
-
-
-
-
-# data.close()
-#toggleline.on_click()
