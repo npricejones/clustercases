@@ -660,7 +660,9 @@ hmsz.change.emit();
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
         self.loadbutton.button_type='success'
 
-starter = display_result(case=7,timestamp='2018-07-09.19.50.41.862297',pad=0.1)
+starter = display_result(case=8,timestamp='2018-07-18.12.04.04.618630',pad=0.1)
+
+
 
 goodcasefiles = ['case8_2018-07-12.17.56.09.902178.hdf5',
                  'case6_2018-07-12.17.58.51.280643.hdf5',
