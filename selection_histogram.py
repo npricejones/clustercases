@@ -733,7 +733,10 @@ hmsz.change.emit();
         self.loadbutton.label = 'Loading'
         self.case = new
         caselist = glob.glob('*.hdf5')
-        cases = np.unique(np.array([i.split('_')[0].split('case')[-1] for i in caselist]))
+        cases = np.unique(np.array([i.split('_')[0].split('case')[-1] for i in caselist])).astype('int')
+        cases.sort()
+        cases = cases.astype('str')
+        
         timelist = glob.glob('case{0}*.hdf5'.format(new))
         times = np.array([i.split('_')[1].split('.hdf5')[0] for i in timelist])[::-1]
 
