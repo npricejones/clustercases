@@ -401,8 +401,6 @@ hmsz.change.emit();
         hist_name = key.lower().replace(' ','_')
         arr = self.source.data[key] 
         setattr(self,'arr_{0}'.format(hist_name),arr)
-        if key == 'Found Size' or key == 'Matched Size':
-            print(bins)
         hist, edges = np.histogram(arr, bins=bins)
         hist = hist.astype('float')
         setattr(self,'hist_{0}'.format(hist_name),hist)
@@ -663,18 +661,17 @@ hmsz.change.emit();
         self.loadbutton.button_type='warning'
         dtype = nametypes[new]
         self.read_base_data(datatype=dtype)
-        self.read_run_data(update=False)
         self.selectparam.options = self.paramlist
         self.selectparam.value = self.paramchoices[self.goodind]
+        eps,min_sample = [i.split('=')[-1] for i in self.selectparam.value.split(', ')]
+        eps = float(eps)
+        min_sample = int(min_sample)
+        # read in new self.source
+        self.read_run_data(eps,min_sample,update=True)
         self.source = ColumnDataSource(data=self.datadict)
+        self.sourcedict['newsource'] = self.source
         self.histograms(update=True)
         self.updateaxlim()
-        self.sourcedict['heff'] = self.hsource_efficiency
-        self.sourcedict['hcom'] = self.hsource_completeness
-        self.sourcedict['hfsi'] = self.hsource_found_silhouette
-        self.sourcedict['hmsi'] = self.hsource_matched_silhouette
-        self.sourcedict['hfsz'] = self.hsource_found_size
-        self.sourcedict['hmsz'] = self.hsource_matched_size
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
         self.loadbutton.button_type='success'
 
