@@ -85,7 +85,7 @@ class read_results(object):
                 labs = np.delete(labs,bad[0][0])
             self.numcs.append(len(labs))
         self.numcs = np.array(self.numcs)
-        self.goodinds = np.where(self.numcs > 0)
+        self.goodinds = np.where(self.numcs > 1)
         if len(self.goodinds[0]) > 0:
             self.goodind = self.goodinds[0][0]
         elif len(goodinds[0])==0:
@@ -213,6 +213,7 @@ for (key in newmsz) {
     }
 }
 
+console.log("hmm");
 source.change.emit();
 heff.change.emit();
 hcom.change.emit();
@@ -400,7 +401,8 @@ hmsz.change.emit();
         hist_name = key.lower().replace(' ','_')
         arr = self.source.data[key] 
         setattr(self,'arr_{0}'.format(hist_name),arr)
-        print(bins)
+        if key == 'Found Size' or key == 'Matched Size':
+            print(bins)
         hist, edges = np.histogram(arr, bins=bins)
         hist = hist.astype('float')
         setattr(self,'hist_{0}'.format(hist_name),hist)
@@ -608,9 +610,8 @@ hmsz.change.emit();
         self.p4.y_range.start = slymin
         self.p4.y_range.end = ymax
 
-        print(self.maxsize)
-        self.p_found_size.x_range.end = self.maxsize
-        self.p_matched_size.x_range.end = self.maxsize
+        self.p_found_size.x_range.end = 10**self.maxsize
+        self.p_matched_size.x_range.end = 10**self.maxsize
 
         self.l1.data_source.data['x'] = lineparams
         self.l1.data_source.data['y'] = lineparams
@@ -655,7 +656,6 @@ hmsz.change.emit();
         self.sourcedict['newsource'] = self.source
         self.histograms(update=True)
         self.updateaxlim()
-        self.JScallback()
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
         self.loadbutton.button_type='success'
 
@@ -675,7 +675,6 @@ hmsz.change.emit();
         self.sourcedict['hmsi'] = self.hsource_matched_silhouette
         self.sourcedict['hfsz'] = self.hsource_found_size
         self.sourcedict['hmsz'] = self.hsource_matched_size
-        self.JScallback()
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
         self.loadbutton.button_type='success'
 
