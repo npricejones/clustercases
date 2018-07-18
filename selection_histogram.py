@@ -647,6 +647,10 @@ hmsz.change.emit();
 
         self.p_found_size.x_range.end = 10**self.maxsize
         self.p_matched_size.x_range.end = 10**self.maxsize
+        self.p_efficiency.y_range.end = 1.1*np.max(self.hsource_efficiency.data['mainhist'])
+        self.p_completeness.y_range.end = 1.1*np.max(self.hsource_completeness.data['mainhist'])
+        self.p_found_silhouette.y_range.end = 1.1*np.max(self.hsource_found_silhouette.data['mainhist'])
+
 
         self.l1.data_source.data['x'] = [minlim,maxlim]
         self.l1.data_source.data['y'] = [minlim,maxlim]
