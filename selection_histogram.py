@@ -61,6 +61,7 @@ class read_results(object):
         self.timestamp = timestamp
 
     def read_base_data(self,datatype=None,case=None,timestamp=None,neighbours=20):
+        self.allbad = False
         self.data = h5py.File('case{0}_{1}.hdf5'.format(self.case,self.timestamp),'r+')
         if datatype:
             self.dtype = datatype
@@ -74,14 +75,29 @@ class read_results(object):
         self.tsil = self.data['{0}_true_sil_neigh{1}'.format(self.dtype,neighbours)][:]
         # scrub nans
         self.tsil[np.isnan(self.tsil)]=-1
-        #self.labels_pred = self.data['{0}_labels_pred'.format(self.dtype)][:]
+        self.labels_pred = self.data['{0}_labels_pred'.format(self.dtype)][:]
+        self.numcs = []
+        self.goodind = 0
+        for row in range(self.labels_pred.shape[0]):
+            labs = np.unique(self.labels_pred[row])
+            bad = np.where(labs==-1)
+            if len(bad[0])>0:
+                labs = np.delete(labs,bad[0][0])
+            self.numcs.append(len(labs))
+        self.numcs = np.array(self.numcs)
+        self.goodinds = np.where(self.numcs > 0)
+        if len(self.goodinds[0]) > 0:
+            self.goodind = self.goodinds[0][0]
+        elif len(goodinds[0])==0:
+            self.allbad = True
         self.min_samples = self.data.attrs['{0}_min'.format(self.dtype)][:]
         self.eps = self.data.attrs['{0}_eps'.format(self.dtype)][:]
-        self.epsval = self.eps[0]
-        self.minval = self.min_samples[0]
+        self.epsval = self.eps[self.goodind]
+        self.minval = self.min_samples[self.goodind]
         self.paramchoices = []
         for i in range(len(self.eps)):
             self.paramchoices.append('eps={0}, min={1}'.format(self.eps[i],self.min_samples[i]))
+        self.paramlist = list(np.array(self.paramchoices)[self.goodinds])
 
     def read_run_data(self,eps=None,min_sample=None,update=False):
         if eps:
@@ -209,37 +225,40 @@ hmsz.change.emit();
 
     def layout_plots(self):
         self.read_base_data()
-        self.read_run_data()
-        self.center_plot()
-        self.histograms()
-        self.buttons()
-        # Here's where you decide the distribution of plots
-        self.layout = row(column(widgetbox(self.toggleline),widgetbox(self.xradio,name='x-axis'),
-                        widgetbox(self.yradio,name='y-axis'),widgetbox(self.selectdtype),
-                        widgetbox(self.selectparam),
-                        widgetbox(self.loadbutton)),
-                 column(Tabs(tabs=self.panels,width=self.sqside),row(self.p_found_size,self.p_matched_size)),
-                 column(self.p_efficiency,self.p_found_silhouette),
-                 column(self.p_completeness,self.p_matched_silhouette),)
+        if self.allbad:
+            print("Didn't find any clusters for any parameter choices with {0} this run".format(typenames[self.dtype]))
+        elif not self.allbad:
+            self.read_run_data()
+            self.center_plot()
+            self.histograms()
+            self.buttons()
+            # Here's where you decide the distribution of plots
+            self.layout = row(column(widgetbox(self.toggleline),widgetbox(self.xradio,name='x-axis'),
+                            widgetbox(self.yradio,name='y-axis'),widgetbox(self.selectdtype),
+                            widgetbox(self.selectparam),
+                            widgetbox(self.loadbutton)),
+                     column(Tabs(tabs=self.panels,width=self.sqside),row(self.p_found_size,self.p_matched_size)),
+                     column(self.p_efficiency,self.p_found_silhouette),
+                     column(self.p_completeness,self.p_matched_silhouette),)
 
-        # Activate buttons
-        self.r1.data_source.on_change('selected', self.updatetophist)
-        self.r2.data_source.on_change('selected', self.updatetophist)
-        self.r3.data_source.on_change('selected', self.updatetophist)
-        self.r4.data_source.on_change('selected', self.updatetophist)
-        self.xradio.on_click(self.updateallx)
-        self.yradio.on_click(self.updateally)
-        self.p1.on_event(events.Reset,self.resetplots)
-        self.p2.on_event(events.Reset,self.resetplots)
-        self.p3.on_event(events.Reset,self.resetplots)
-        self.p4.on_event(events.Reset,self.resetplots)
-        # self.p1.on_event(events.MouseEnter,self.updateparam)
-        # self.p2.on_event(events.MouseEnter,self.updateparam)
-        # self.p3.on_event(events.MouseEnter,self.updateparam)
-        # self.p4.on_event(events.MouseEnter,self.updateparam)
-        curdoc().add_root(self.layout)
-        curdoc().title = "DBSCAN on {0} with eps={1}, min_samples={2}".format(typenames[self.dtype], 
-                                                                              self.epsval,self.minval)
+            # Activate buttons
+            self.r1.data_source.on_change('selected', self.updatetophist)
+            self.r2.data_source.on_change('selected', self.updatetophist)
+            self.r3.data_source.on_change('selected', self.updatetophist)
+            self.r4.data_source.on_change('selected', self.updatetophist)
+            self.xradio.on_click(self.updateallx)
+            self.yradio.on_click(self.updateally)
+            self.p1.on_event(events.Reset,self.resetplots)
+            self.p2.on_event(events.Reset,self.resetplots)
+            self.p3.on_event(events.Reset,self.resetplots)
+            self.p4.on_event(events.Reset,self.resetplots)
+            # self.p1.on_event(events.MouseEnter,self.updateparam)
+            # self.p2.on_event(events.MouseEnter,self.updateparam)
+            # self.p3.on_event(events.MouseEnter,self.updateparam)
+            # self.p4.on_event(events.MouseEnter,self.updateparam)
+            curdoc().add_root(self.layout)
+            curdoc().title = "DBSCAN on {0} with eps={1}, min_samples={2}".format(typenames[self.dtype], 
+                                                                                  self.epsval,self.minval)
 
     def set_colors(self):
         self.bcolor = "#FFF7EA" #cream
@@ -499,8 +518,8 @@ hmsz.change.emit();
 
         
         
-        self.selectparam = Select(title="parameter values", value=self.paramchoices[0], 
-                           options=self.paramchoices)
+        self.selectparam = Select(title="parameter values", value=self.paramchoices[self.goodind], 
+                           options=self.paramlist)
         self.selectparam.on_change('value',self.updateparam)
         self.loadbutton = Button(label='Load New Data', button_type='success')
         self.JScallback()
@@ -645,8 +664,8 @@ hmsz.change.emit();
         dtype = nametypes[new]
         self.read_base_data(datatype=dtype)
         self.read_run_data(update=False)
-        self.selectparam.options = self.paramchoices
-        self.selectparam.value = self.paramchoices[0]
+        self.selectparam.options = self.paramlist
+        self.selectparam.value = self.paramchoices[self.goodind]
         self.source = ColumnDataSource(data=self.datadict)
         self.histograms(update=True)
         self.updateaxlim()
