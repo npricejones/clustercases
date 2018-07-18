@@ -381,6 +381,7 @@ hmsz.change.emit();
         hist_name = key.lower().replace(' ','_')
         arr = self.source.data[key] 
         setattr(self,'arr_{0}'.format(hist_name),arr)
+        print(bins)
         hist, edges = np.histogram(arr, bins=bins)
         hist = hist.astype('float')
         setattr(self,'hist_{0}'.format(hist_name),hist)
