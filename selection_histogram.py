@@ -518,8 +518,8 @@ hmsz.change.emit();
 
         self.labels = list(self.source.data.keys())
 
-        self.xradio = RadioButtonGroup(labels=self.labels, active=0,name='x-axis')
-        self.yradio = RadioButtonGroup(labels=self.labels, active=1,name='y-axis')
+        self.xradio = RadioButtonGroup(labels=self.labels, active=4,name='x-axis')
+        self.yradio = RadioButtonGroup(labels=self.labels, active=2,name='y-axis')
 
         self.selectcase = Select(title='case',value=self.case,options=list(cases))
         self.selectcase.on_change('value',self.updatecase)
