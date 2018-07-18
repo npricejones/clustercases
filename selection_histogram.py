@@ -474,9 +474,9 @@ hmsz.change.emit();
         self.make_hist('Completeness',bins=np.linspace(0,1,nbins),
                   x_range=(0,1),yscale='log',update=update)
         self.make_hist('Found Silhouette',bins=np.linspace(-1,1,2*nbins),
-                  x_range=(0,1),yscale='log',update=update)
+                  x_range=(-1,1),yscale='log',update=update)
         self.make_hist('Matched Silhouette',bins=np.linspace(-1,1,2*nbins),
-                  x_range=(0,1),yscale='log',background=self.tsil,
+                  x_range=(-1,1),yscale='log',background=self.tsil,
                   update=update)
         self.maxsize = np.max(np.array([np.max(self.source.data['Found Size']),
                                         np.max(self.source.data['Matched Size']),
@@ -512,7 +512,10 @@ hmsz.change.emit();
     def buttons(self):
 
         caselist = glob.glob('*.hdf5')
-        cases = np.unique(np.array([i.split('_')[0].split('case')[-1] for i in caselist]))
+        cases = np.unique(np.array([i.split('_')[0].split('case')[-1] for i in caselist])).astype('int')
+        cases.sort()
+        cases = cases.astype('str')
+
         timelist = glob.glob('case{0}*.hdf5'.format(self.case))
         times = np.array([i.split('_')[1].split('.hdf5')[0] for i in timelist])[::-1]
 
