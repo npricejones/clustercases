@@ -85,7 +85,7 @@ class read_results(object):
                 labs = np.delete(labs,bad[0][0])
             self.numcs.append(len(labs))
         self.numcs = np.array(self.numcs)
-        self.goodinds = np.where(self.numcs > 1)
+        self.goodinds = np.where(self.numcs > 3)
         if len(self.goodinds[0]) > 0:
             self.goodind = self.goodinds[0][0]
         elif len(goodinds[0])==0:
@@ -235,7 +235,10 @@ hmsz.change.emit();
             self.buttons()
             # Here's where you decide the distribution of plots
             self.layout = row(column(widgetbox(self.toggleline),widgetbox(self.xradio,name='x-axis'),
-                            widgetbox(self.yradio,name='y-axis'),widgetbox(self.selectdtype),
+                            widgetbox(self.yradio,name='y-axis'),
+                            widgetbox(self.selectcase),
+                            widgetbox(self.selecttime),
+                            widgetbox(self.selectdtype),
                             widgetbox(self.selectparam),
                             widgetbox(self.loadbutton)),
                      column(Tabs(tabs=self.panels,width=self.sqside),row(self.p_found_size,self.p_matched_size)),
@@ -508,20 +511,28 @@ hmsz.change.emit();
 
     def buttons(self):
 
+        caselist = glob.glob('*.hdf5')
+        cases = np.unique(np.array([i.split('_')[0].split('case')[-1] for i in caselist]))
+        timelist = glob.glob('case{0}*.hdf5'.format(self.case))
+        times = np.array([i.split('_')[1].split('.hdf5')[0] for i in timelist])[::-1]
+
         self.labels = list(self.source.data.keys())
 
         self.xradio = RadioButtonGroup(labels=self.labels, active=0,name='x-axis')
         self.yradio = RadioButtonGroup(labels=self.labels, active=1,name='y-axis')
 
+        self.selectcase = Select(title='case',value=self.case,options=list(cases))
+        self.selectcase.on_change('value',self.updatecase)
+        self.selecttime = Select(title='timestamp',value=self.timestamp,options=list(times))
+        self.selecttime.on_change('value',self.updatetime)
+
         self.selectdtype = Select(title='data type',value='spectra',options=list(nametypes.keys()))
         self.selectdtype.on_change('value',self.updatedtype)
-
-        
         
         self.selectparam = Select(title="parameter values", value=self.paramchoices[self.goodind], 
                            options=self.paramlist)
         self.selectparam.on_change('value',self.updateparam)
-        self.loadbutton = Button(label='Load New Data', button_type='success')
+        self.loadbutton = Button(label='Select new run info above', button_type='success')
         self.JScallback()
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
         
@@ -645,6 +656,7 @@ hmsz.change.emit();
 
     def updateparam(self,attr,old,new):
         self.loadbutton.button_type='warning'
+        self.loadbutton.label = 'Loading'
         eps,min_sample = [i.split('=')[-1] for i in new.split(', ')]
         eps = float(eps)
         min_sample = int(min_sample)
@@ -656,26 +668,73 @@ hmsz.change.emit();
         self.updateaxlim()
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
         self.loadbutton.button_type='success'
+        self.loadbutton.label = 'Click to load new data'
 
     def updatedtype(self,attr,old,new):
         self.loadbutton.button_type='warning'
+        self.loadbutton.label = 'Loading'
         dtype = nametypes[new]
         self.read_base_data(datatype=dtype)
-        self.selectparam.options = self.paramlist
-        self.selectparam.value = self.paramchoices[self.goodind]
-        eps,min_sample = [i.split('=')[-1] for i in self.selectparam.value.split(', ')]
-        eps = float(eps)
-        min_sample = int(min_sample)
-        # read in new self.source
-        self.read_run_data(eps,min_sample,update=True)
-        self.source = ColumnDataSource(data=self.datadict)
-        self.sourcedict['newsource'] = self.source
-        self.histograms(update=True)
-        self.updateaxlim()
-        self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
-        self.loadbutton.button_type='success'
+        if self.allbad:
+            print("Didn't find any clusters for any parameter choices with {0} this run".format(typenames[self.dtype]))
+            self.loadbutton.button_type='danger'
+            self.loadbutton.label = 'No new data to load'
+        elif not self.allbad:
+            self.selectparam.options = self.paramlist
+            self.selectparam.value = self.paramchoices[self.goodind]
+            eps,min_sample = [i.split('=')[-1] for i in self.selectparam.value.split(', ')]
+            eps = float(eps)
+            min_sample = int(min_sample)
+            # read in new self.source
+            self.read_run_data(eps,min_sample,update=True)
+            self.source = ColumnDataSource(data=self.datadict)
+            self.sourcedict['newsource'] = self.source
+            self.histograms(update=True)
+            self.updateaxlim()
+            self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
+            self.loadbutton.button_type='success'
+            self.loadbutton.label = 'Click to load new data'
 
-starter = display_result(case=8,timestamp='2018-07-18.12.04.04.618630',pad=0.1)
+    def updatecase(self,attr,old,new):
+        self.loadbutton.button_type='warning'
+        self.loadbutton.label = 'Loading'
+        self.case = new
+        caselist = glob.glob('*.hdf5')
+        cases = np.unique(np.array([i.split('_')[0].split('case')[-1] for i in caselist]))
+        timelist = glob.glob('case{0}*.hdf5'.format(new))
+        times = np.array([i.split('_')[1].split('.hdf5')[0] for i in timelist])[::-1]
+
+        self.selectcase.options = list(cases)
+        self.selecttime.options = list(times)
+        self.selecttime.value = times[0]
+
+    def updatetime(self,attr,old,new):
+        self.loadbutton.button_type='warning'
+        self.loadbutton.label = 'Loading'
+        self.timestamp = new
+        dtype = nametypes[self.selectdtype.value]
+        self.read_base_data(case=self.case,timestamp=self.timestamp,datatype=dtype)
+        if self.allbad:
+            print("Didn't find any clusters for any parameter choices with {0} this run".format(typenames[self.dtype]))
+            self.loadbutton.button_type='danger'
+            self.loadbutton.label = 'No new data to load'
+        elif not self.allbad:
+            self.selectparam.options = self.paramlist
+            self.selectparam.value = self.paramchoices[self.goodind]
+            eps,min_sample = [i.split('=')[-1] for i in self.selectparam.value.split(', ')]
+            eps = float(eps)
+            min_sample = int(min_sample)
+            # read in new self.source
+            self.read_run_data(eps,min_sample,update=True)
+            self.source = ColumnDataSource(data=self.datadict)
+            self.sourcedict['newsource'] = self.source
+            self.histograms(update=True)
+            self.updateaxlim()
+            self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
+            self.loadbutton.button_type='success'
+            self.loadbutton.label = 'Click to load new data'
+
+starter = display_result(case='8',timestamp='2018-07-18.12.04.04.618630',pad=0.1)
 
 
 
