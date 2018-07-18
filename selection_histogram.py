@@ -276,9 +276,9 @@ hmsz.change.emit();
     def center_plot(self,xlabel=None,ylabel=None):
         self.panels = []
         if not xlabel:
-            xlabel = 'Efficiency'
+            xlabel = 'Found Size'
         if not ylabel:
-            ylabel = 'Completeness'
+            ylabel = 'Found Silhouette'
         x = self.source.data[xlabel]
         y = self.source.data[ylabel]
         axlims,lineparams = findextremes(x,y,pad=self.pad)
@@ -577,23 +577,49 @@ hmsz.change.emit();
                 h.glyph.top = 'selected'
 
     def updateaxlim(self):
-        axlims,lineparams = findextremes(self.source.data[self.labels[self.xradio.active]],
-                                         self.source.data[self.labels[self.yradio.active]],
+        xkey = self.labels[self.xradio.active]
+        ykey = self.labels[self.yradio.active]
+        axlims,lineparams = findextremes(self.source.data[xkey],
+                                         self.source.data[ykey],
                                          pad=self.pad)
         xmin,xmax,ymin,ymax=axlims
         minlim,maxlim = lineparams
 
-        if minlim < 0:
+        if xkey == 'Efficiency' or xkey == 'Completeness':
+            xmin = -0.1
+            xmax = 1.1
+            minlim = np.min([xmin,minlim])
+            maxlim = np.min([xmax,maxlim])
+
+        if xkey == 'Found Silhouette' or xkey == 'Matched Silhouette':
+            xmin = -1.1
+            xmax = 1.1
+            minlim = np.min([xmin,minlim])
+            maxlim = np.min([xmax,maxlim])
+
+        if ykey == 'Efficiency' or ykey == 'Completeness':
+            ymin = -0.1
+            ymax = 1.1
+            minlim = np.min([ymin,minlim])
+            maxlim = np.min([ymax,maxlim])
+
+        if ykey == 'Found Silhouette' or ykey == 'Matched Silhouette':
+            ymin = -1.1
+            ymax = 1.1
+            minlim = np.min([ymin,minlim])
+            maxlim = np.min([xmax,maxlim])
+
+        if minlim <= 0:
             lminlim = lzp
         else:
             lminlim = minlim
 
-        if xmin < 0:
+        if xmin <= 0:
             slxmin = zp[self.labels[self.xradio.active]]
         else:
             slxmin = xmin
 
-        if ymin < 0:
+        if ymin <= 0:
             slymin = zp[self.labels[self.yradio.active]]
         else:
             slymin = ymin
@@ -622,8 +648,8 @@ hmsz.change.emit();
         self.p_found_size.x_range.end = 10**self.maxsize
         self.p_matched_size.x_range.end = 10**self.maxsize
 
-        self.l1.data_source.data['x'] = lineparams
-        self.l1.data_source.data['y'] = lineparams
+        self.l1.data_source.data['x'] = [minlim,maxlim]
+        self.l1.data_source.data['y'] = [minlim,maxlim]
 
         self.l2.data_source.data['x'] = np.logspace(np.log10(lminlim),np.log10(maxlim),100)
         self.l2.data_source.data['y'] = np.logspace(np.log10(lminlim),np.log10(maxlim),100)
@@ -735,11 +761,4 @@ hmsz.change.emit();
             self.loadbutton.label = 'Click to load new data'
 
 starter = display_result(case='8',timestamp='2018-07-18.12.04.04.618630',pad=0.1)
-
-
-
-goodcasefiles = ['case8_2018-07-12.17.56.09.902178.hdf5',
-                 'case6_2018-07-12.17.58.51.280643.hdf5',
-                 'case4_2018-07-12.18.01.18.731772.hdf5',
-                 'case7_2018-07-09.19.50.41.862297.hdf5']
 
