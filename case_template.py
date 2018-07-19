@@ -65,6 +65,27 @@ c12c13_cls = 0
 spreads = np.array([ch_cls,nh_cls,oh_cls,nah_cls,mgh_cls,alh_cls,sih_cls,sh_cls,kh_cls,
                     cah_cls,tih_cls,vh_cls,mnh_cls,nih_cls,feh_cls])
 
+elem = ['C','N','O','Na','Mg','Al','Si','S','K','Ca','Ti','V','Fe','Ni']
+
+tophats = np.load('tophat_elems.npy')
+windows = np.load('window_elems.npy')
+
+def combine_windows(windows = tophats,combelem=elem):
+    """
+    Combine windows from various elements into a single spectrum
+    for dot product with spectrum.
+
+    windows:    set of windows to use (tophats or actual windows)
+    combelem:   list of elements to combine
+
+    Returns spectrum   
+    """
+
+    mask = windows == 0
+    windows = np.ma.masked_array(windows,mask=mask)
+    combspec = np.ma.mean(windows,axis=0)
+    return combspec.data
+
 
 def create_indeps(mem,degree=2,full=np.array([]),cross=np.array([])):
     """
@@ -138,7 +159,7 @@ class caserun(object):
                  seps=seps,smin_samples=smin_samples,
                  aeps=aeps,amin_samples=amin_samples,
                  metric='precomputed',neighbours = 20,phvary=True,
-                 fitspec=True,case='7',normeps=False):
+                 fitspec=True,case='7',normeps=False,projspec=False):
         self.case = case
         start = time.time()
         self.create_clusters(nstars,sample,genfn,centerfac,centerspr)
@@ -155,7 +176,8 @@ class caserun(object):
             print('Fit stars in {0} seconds'.format(end-start))
         self.plotfile()
         start = time.time()
-        self.clustering(seps,aeps,smin_samples,amin_samples,metric='precomputed',neighbours = 20,normeps=normeps)
+        self.clustering(seps,aeps,smin_samples,amin_samples,metric='precomputed',
+                        neighbours = 20,normeps=normeps,projspec=projspec)
         end = time.time()
         print('Finished desired clustering in {0} seconds'.format(end-start))
 
@@ -299,7 +321,7 @@ class caserun(object):
         tcount,tlabs = membercount(self.labels_true)
         self.plot['true_size'] = tcount
 
-    def clustering(self,seps,aeps,smin_samples,amin_samples,metric='precomputed',neighbours = 20,normeps=False):
+    def clustering(self,seps,aeps,smin_samples,amin_samples,metric='precomputed',neighbours = 20,normeps=False,projspec=False):
 
         self.plot.attrs['spec_min'] = smin_samples
         self.plot.attrs['spec_eps'] = seps
@@ -308,12 +330,10 @@ class caserun(object):
 
         # Generate distances if using precomputed metric
         if metric=='precomputed':
-            spec_distances = euclidean_distances(self.specinfo.spectra, 
-                                                 self.specinfo.spectra)
-            typspec = np.median(spec_distances)
-            abun_distances = euclidean_distances(self.abundances,
-                                                 self.abundances)
-            typabun = np.median(abun_distances)
+            distances = euclidean_distances(self.specinfo.spectra, 
+                                            self.specinfo.spectra)
+            typspec = np.median(distances)
+            
 
         # Intialize predicted labels
         d = distance_metrics(self.specinfo.spectra)
@@ -326,11 +346,11 @@ class caserun(object):
                 if not normeps:
                     db = DBSCAN(min_samples=smin_samples[i],
                                 eps=seps[i],
-                                metric='precomputed').fit(spec_distances)
+                                metric='precomputed').fit(distances)
                 elif normeps:
                     db = DBSCAN(min_samples=smin_samples[i],
                                 eps=seps[i]*typspec,
-                                metric='precomputed').fit(spec_distances)
+                                metric='precomputed').fit(distances)
             elif metric!='precomputed':
                 db = DBSCAN(min_samples=smin_samples[i],
                             eps=seps[i],
@@ -369,6 +389,78 @@ class caserun(object):
             print('I found {0} out of {1} clusters'.format(len(plabs),self.numc)) 
         self.plot['spec_labels_pred'] = spec_labels_pred
         self.plot['spec_cbn'] = spec_cbn
+
+
+        if metric=='precomputed':
+            if isinstance(projspec,list):
+                projspec = np.array(projspec)
+            if isinstance(projspec,np.ndarray):
+                if len(projspec.shape) == 1:
+                    windowspec = np.dot(projspec,self.specinfo.spectra)
+            distances = euclidean_distances(windowspec, 
+                                            windowspec)
+            typwind = np.median(distances)
+
+        # Intialize predicted labels
+        d = distance_metrics(windowspec)
+        self.plot['wind_true_sil_neigh{0}'.format(neighbours)] = d.silhouette(self.labels_true,k=neighbours)[0]
+        wind_labels_pred = -np.ones((len(seps),self.mem))
+        wind_cbn = np.zeros((len(seps),self.mem))
+        for i in range(len(seps)):
+            start = time.time()
+            if metric =='precomputed':
+                if not normeps:
+                    db = DBSCAN(min_samples=smin_samples[i],
+                                eps=seps[i],
+                                metric='precomputed').fit(distances)
+                elif normeps:
+                    db = DBSCAN(min_samples=smin_samples[i],
+                                eps=seps[i]*typspec,
+                                metric='precomputed').fit(distances)
+            elif metric!='precomputed':
+                db = DBSCAN(min_samples=smin_samples[i],
+                            eps=seps[i],
+                            metric=metric).fit(windspec)
+            pcount,plabs = membercount(db.labels_)
+            bad = np.where(plabs==-1)
+            if len(bad[0])>0:
+                plabs = np.delete(plabs,bad[0][0])
+                pcount = np.delete(pcount,bad[0][0])
+            efficiency, completeness, plabs, matchtlabs = efficiency_completeness(db.labels_,self.labels_true,minmembers=1)
+            if len(plabs) > 5:
+                k = neighbours
+                if len(plabs) < neighbours and len(plabs) > 1:
+                    k = len(plabs)-1
+                elif len(plabs) == 1:
+                    k = 1
+                self.plot['wind_match_tlabs_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = matchtlabs
+                self.plot['wind_found_sil_eps{0}_min{1}_neigh{2}'.format(seps[i],smin_samples[i],neighbours)] = d.silhouette(db.labels_,k=k)[0]
+                self.plot['wind_eff_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = efficiency
+                self.plot['wind_com_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = completeness
+                self.plot['wind_found_size_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = pcount
+            elif len(plabs) <= 5:
+                self.plot['wind_match_tlabs_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = np.array([])
+                self.plot['wind_found_sil_eps{0}_min{1}_neigh{2}'.format(seps[i],smin_samples[i],neighbours)] = np.array([])
+                self.plot['wind_eff_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = np.array([])
+                self.plot['wind_com_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = np.array([])
+                self.plot['wind_found_size_eps{0}_min{1}'.format(seps[i],smin_samples[i])] = np.array([])
+            core = db.core_sample_indices_
+            wind_cbn[i][core] = 1
+            wind_labels_pred[i] = db.labels_        
+            noise = np.where(db.labels_==-1)
+            wind_cbn[i][noise] = -1
+            noise = np.where(db.labels_==-1)
+            end = time.time()
+            print('Done DBSCAN {0} of {1} with eps {2} and min neighbours {3} - {4} seconds'.format(i+1,len(seps),seps[i],smin_samples[i],np.round(end-start,2)))
+            print('I found {0} out of {1} clusters'.format(len(plabs),self.numc)) 
+        self.plot['wind_labels_pred'] = wind_labels_pred
+        self.plot['wind_cbn'] = wind_cbn
+
+
+        if metric=='precomputed'
+            abun_distances = euclidean_distances(self.abundances,
+                                                 self.abundances)
+            typabun = np.median(abun_distances)
 
         # Intialize predicted labels
         d = distance_metrics(self.abundances)
