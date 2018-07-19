@@ -20,18 +20,19 @@ from bokeh.plotting import figure, curdoc, ColumnDataSource, reset_output
 from bokeh.io import show
 from bokeh import events
 
-case = 7
-
+# default neighbours being used for silhouette coefficient calculation
 neighbours = 20
 
+
+# tools to include on bokeh plot
 TOOLS="pan,wheel_zoom,box_zoom,box_select,lasso_select,reset,save"
 
 resultpath = '/Users/nat/chemtag/clustercases/'
 
-# Make additions here if windows ever used
+# Types of data that clustering was run on
 
-typenames = {'spec':'spectra','abun':'abundances'}
-nametypes = {'spectra':'spec','abundances':'abun'}
+typenames = {'spec':'spectra','abun':'abundances','wind':'windows'}
+nametypes = {'spectra':'spec','abundances':'abun','windows':'wind'}
 
 zp = {'Efficiency':5e-3,'Completeness':5e-3,'Found Silhouette':5e-3,'Matched Silhouette':5e-3,'Found Size':0.5,'Matched Size':0.5}
 lzp=1e-3
@@ -69,6 +70,13 @@ class read_results(object):
             self.case = case
         if timestamp:
             self.timestamp = timestamp
+        alldtypes = np.unique(np.array([i.split('_')[0] for i in list(d.keys())]))
+        special = np.where((alldtypes=='true') | (alldtypes=='labels'))
+        if len(special[0])>0:
+            alldtypes = np.delete(alldtypes,special[0])
+        self.alldtypes = []
+        for dtype in alldtypes:
+            self.alldtypes.append(typenames[dtype])
         #self.chemspace = self.data['{0}'.format(self.dtype)][:]
         #self.labels_true = self.data['labels_true'][:]
         self.tsize = self.data['true_size'][:]
@@ -529,7 +537,7 @@ hmsz.change.emit();
         self.selecttime = Select(title='timestamp',value=self.timestamp,options=list(times))
         self.selecttime.on_change('value',self.updatetime)
 
-        self.selectdtype = Select(title='data type',value='spectra',options=list(nametypes.keys()))
+        self.selectdtype = Select(title='data type',value='spectra',options=self.alldtypes)
         self.selectdtype.on_change('value',self.updatedtype)
         
         self.selectparam = Select(title="parameter values", value=self.paramchoices[self.goodind], 
@@ -736,7 +744,7 @@ hmsz.change.emit();
         cases = np.unique(np.array([i.split('_')[0].split('case')[-1] for i in caselist])).astype('int')
         cases.sort()
         cases = cases.astype('str')
-        
+
         timelist = glob.glob('case{0}*.hdf5'.format(new))
         times = np.array([i.split('_')[1].split('.hdf5')[0] for i in timelist])[::-1]
 
@@ -750,6 +758,7 @@ hmsz.change.emit();
         self.timestamp = new
         dtype = nametypes[self.selectdtype.value]
         self.read_base_data(case=self.case,timestamp=self.timestamp,datatype=dtype)
+        self.selectdtype.options = self.alldtypes
         if self.allbad:
             print("Didn't find any clusters for any parameter choices with {0} this run".format(typenames[self.dtype]))
             self.loadbutton.button_type='danger'
