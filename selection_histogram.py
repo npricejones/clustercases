@@ -481,9 +481,9 @@ hmsz.change.emit();
                   x_range=(0,1),yscale='log',update=update)
         self.make_hist('Completeness',bins=np.linspace(0,1,nbins),
                   x_range=(0,1),yscale='log',update=update)
-        self.make_hist('Found Silhouette',bins=np.linspace(-1,1,2*nbins),
+        self.make_hist('Found Silhouette',bins=np.linspace(-1,1,nbins),
                   x_range=(-1,1),yscale='log',update=update)
-        self.make_hist('Matched Silhouette',bins=np.linspace(-1,1,2*nbins),
+        self.make_hist('Matched Silhouette',bins=np.linspace(-1,1,nbins),
                   x_range=(-1,1),yscale='log',background=self.tsil,
                   update=update)
         self.maxsize = np.max(np.array([np.max(self.source.data['Found Size']),
