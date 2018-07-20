@@ -70,7 +70,7 @@ class read_results(object):
             self.case = case
         if timestamp:
             self.timestamp = timestamp
-        alldtypes = np.unique(np.array([i.split('_')[0] for i in list(d.keys())]))
+        alldtypes = np.unique(np.array([i.split('_')[0] for i in list(self.data.keys())]))
         special = np.where((alldtypes=='true') | (alldtypes=='labels'))
         if len(special[0])>0:
             alldtypes = np.delete(alldtypes,special[0])
