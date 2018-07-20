@@ -5,7 +5,7 @@ at your command prompt. Then navigate to the URL
     http://localhost:5006/selection_histogram
 in your browser.
 '''
-
+import os
 import h5py
 import glob
 import copy
@@ -17,7 +17,7 @@ from bokeh.models import BoxSelectTool, LassoSelectTool, Spacer,CustomJS
 from bokeh.models.glyphs import Circle
 from bokeh.models.widgets import Toggle,RadioButtonGroup,AutocompleteInput,Tabs, Panel, Select, Button
 from bokeh.plotting import figure, curdoc, ColumnDataSource, reset_output
-from bokeh.io import show
+from bokeh.io import show, export_svgs
 from bokeh import events
 
 # default neighbours being used for silhouette coefficient calculation
@@ -25,14 +25,14 @@ neighbours = 20
 
 
 # tools to include on bokeh plot
-TOOLS="pan,wheel_zoom,box_zoom,box_select,lasso_select,reset,save"
+TOOLS="pan,wheel_zoom,box_zoom,box_select,lasso_select,reset"
 
-resultpath = '/Users/nat/chemtag/clustercases/'
+resultpath = './'
 
 # Types of data that clustering was run on
 
-typenames = {'spec':'spectra','abun':'abundances','wind':'windows'}
-nametypes = {'spectra':'spec','abundances':'abun','windows':'wind'}
+typenames = {'spec':'spectra','abun':'abundances','toph':'tophat windows','wind':'windows'}
+nametypes = {'spectra':'spec','abundances':'abun','tophat windows':'toph','windows':'wind'}
 
 zp = {'Efficiency':5e-3,'Completeness':5e-3,'Found Silhouette':5e-3,'Matched Silhouette':5e-3,'Found Size':0.5,'Matched Size':0.5}
 lzp=1e-3
@@ -248,7 +248,8 @@ hmsz.change.emit();
                             widgetbox(self.selecttime),
                             widgetbox(self.selectdtype),
                             widgetbox(self.selectparam),
-                            widgetbox(self.loadbutton)),
+                            widgetbox(self.loadbutton),
+                            widgetbox(self.saveplots)),
                      column(Tabs(tabs=self.panels,width=self.sqside),row(self.p_found_size,self.p_matched_size)),
                      column(self.p_efficiency,self.p_found_silhouette),
                      column(self.p_completeness,self.p_matched_silhouette),)
@@ -305,7 +306,8 @@ hmsz.change.emit();
                          x_axis_location='below', y_axis_location='left',
                          x_axis_label=xlabel,y_axis_label=ylabel,
                          x_axis_type='linear',y_axis_type='linear',
-                         x_range=(xmin,xmax),y_range=(ymin,ymax))
+                         x_range=(xmin,xmax),y_range=(ymin,ymax),
+                         output_backend="svg")
         self.p1.background_fill_color = self.bcolor
         self.p1.select(BoxSelectTool).select_every_mousemove = False
         self.p1.select(LassoSelectTool).select_every_mousemove = False
@@ -331,7 +333,8 @@ hmsz.change.emit();
                          x_axis_location='below', y_axis_location='left',
                          x_axis_label=xlabel,y_axis_label=ylabel,
                          x_axis_type='log',y_axis_type='linear',
-                         x_range=(slxmin,xmax),y_range=(ymin,ymax))
+                         x_range=(slxmin,xmax),y_range=(ymin,ymax),
+                         output_backend="svg")
         self.p2.background_fill_color = self.bcolor
         self.p2.select(BoxSelectTool).select_every_mousemove = False
         self.p2.select(LassoSelectTool).select_every_mousemove = False
@@ -361,7 +364,8 @@ hmsz.change.emit();
                          x_axis_location='below', y_axis_location='left', 
                          x_axis_label=xlabel, y_axis_label=ylabel, 
                          x_axis_type='linear', y_axis_type='log', 
-                         x_range=(xmin,xmax), y_range=(slymin,ymax))
+                         x_range=(xmin,xmax), y_range=(slymin,ymax),
+                         output_backend="svg")
         self.p3.background_fill_color = self.bcolor
         self.p3.select(BoxSelectTool).select_every_mousemove = False
         self.p3.select(LassoSelectTool).select_every_mousemove = False
@@ -387,7 +391,8 @@ hmsz.change.emit();
                          x_axis_location='below', y_axis_location='left', 
                          x_axis_label=xlabel, y_axis_label=ylabel, 
                          x_axis_type='log', y_axis_type='log', 
-                         x_range=(slxmin,xmax), y_range=(slymin,ymax))
+                         x_range=(slxmin,xmax), y_range=(slymin,ymax),
+                         output_backend="svg")
         self.p4.background_fill_color = self.bcolor
         self.p4.select(BoxSelectTool).select_every_mousemove = False
         self.p4.select(LassoSelectTool).select_every_mousemove = False
@@ -454,7 +459,7 @@ hmsz.change.emit();
                         x_range=x_range,y_range=(ymin, hist_max), min_border=10, 
                         min_border_left=50, y_axis_location="right",
                         x_axis_label=key,x_axis_type=xscale,
-                        y_axis_type=yscale)
+                        y_axis_type=yscale,output_backend="svg")
             setattr(self,'p_{0}'.format(hist_name),p)
             p.xgrid.grid_line_color = None
             #pt.yaxis.major_label_orientation = np.pi/4
@@ -546,6 +551,9 @@ hmsz.change.emit();
         self.loadbutton = Button(label='Select new run info above', button_type='success')
         self.JScallback()
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
+
+        self.saveplots = Button(label='Save plots',button_type='primary')
+        self.saveplots.on_click(self.exportplots)
         
         code = '''\
         object1.visible = toggle.active
@@ -778,6 +786,58 @@ hmsz.change.emit();
             self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
             self.loadbutton.button_type='success'
             self.loadbutton.label = 'Click to load new data'
+
+    def exportplots(self):
+        self.saveplots.button_type='danger'
+        self.saveplots.label = 'Saving plots'
+        xkey = self.labels[self.xradio.active]
+        ykey = self.labels[self.yradio.active]
+        self.exportscatter(xkey,ykey)
+        pth = '{0}/hist_efficiency'.format(resultpath)
+        if not os.path.exists(pth):
+            os.system('mkdir -p {0}'.format(pth))
+        export_svgs(self.p_efficiency,filename='{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp))
+        pth = '{0}/hist_completeness'.format(resultpath)
+        if not os.path.exists(pth):
+            os.system('mkdir -p {0}'.format(pth))
+        export_svgs(self.p_completeness,filename='{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp))
+        pth = '{0}/hist_found_silhouette'.format(resultpath)
+        if not os.path.exists(pth):
+            os.system('mkdir -p {0}'.format(pth))
+        export_svgs(self.p_found_silhouette,filename='{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp))
+        pth = '{0}/hist_matched_silhouette'.format(resultpath)
+        if not os.path.exists(pth):
+            os.system('mkdir -p {0}'.format(pth))
+        export_svgs(self.p_matched_silhouette,filename='{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp))
+        pth = '{0}/hist_found_size'.format(resultpath)
+        if not os.path.exists(pth):
+            os.system('mkdir -p {0}'.format(pth))
+        export_svgs(self.p_found_size,filename='{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp))
+        pth = '{0}/hist_matched_size'.format(resultpath)
+        if not os.path.exists(pth):
+            os.system('mkdir -p {0}'.format(pth))
+        export_svgs(self.p_matched_size,filename='{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp))
+        self.saveplots.button_type='primary'
+        self.saveplots.label = 'Save plots'
+
+    def exportscatter(self,xkey,ykey):
+        pth = '{0}/scatter_linear'.format(resultpath)
+        if not os.path.exists(pth):
+            os.system('mkdir -p {0}'.format(pth))
+        export_svgs(self.p1,filename='{0}/{1}_vs_{2}_case{3}_eps{4}_min{5}_{6}.svg'.format(pth,xkey,ykey,self.epsval,self.minval,self.case,self.timestamp))
+        pth = '{0}/scatter_semilogx'.format(resultpath)
+        if not os.path.exists(pth):
+            os.system('mkdir -p {0}'.format(pth))
+        export_svgs(self.p2,filename='{0}/{1}_vs_{2}_case{3}_eps{4}_min{5}_{6}.svg'.format(pth,xkey,ykey,self.epsval,self.minval,self.case,self.timestamp))
+        pth = '{0}/scatter_semilogy'.format(resultpath)
+        if not os.path.exists(pth):
+            os.system('mkdir -p {0}'.format(pth))
+        export_svgs(self.p3,filename='{0}/{1}_vs_{2}_case{3}_eps{4}_min{5}_{6}.svg'.format(pth,xkey,ykey,self.epsval,self.minval,self.case,self.timestamp))
+        pth = '{0}/scatter_loglog'.format(resultpath)
+        if not os.path.exists(pth):
+            os.system('mkdir -p {0}'.format(pth)) 
+        export_svgs(self.p4,filename='{0}/{1}_vs_{2}_case{3}_eps{4}_min{5}_{6}.svg'.format(pth,xkey,ykey,self.epsval,self.minval,self.case,self.timestamp))
+
 
 starter = display_result(case='8',timestamp='2018-07-18.12.04.04.618630',pad=0.1)
 
