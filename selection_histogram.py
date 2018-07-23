@@ -10,6 +10,7 @@ import h5py
 import glob
 import copy
 import numpy as np
+import warnings
 from clustering_stats import *
 
 from bokeh.layouts import row, column, widgetbox
@@ -27,7 +28,13 @@ neighbours = 20
 # tools to include on bokeh plot
 TOOLS="pan,wheel_zoom,box_zoom,box_select,lasso_select,reset"
 
-resultpath = './'
+cwd = os.getcwd()
+
+resultpath = os.getenv('CLUSTERCASES', cwd)
+
+inkscape = os.getenv('INKSCAPE',False)
+if not inkscape:
+    warnings.warn('Need Inkscape to convert saved svg to pdf')
 
 # Types of data that clustering was run on
 
@@ -793,30 +800,61 @@ hmsz.change.emit();
         xkey = self.labels[self.xradio.active]
         ykey = self.labels[self.yradio.active]
         self.exportscatter(xkey,ykey)
+
         pth = '{0}/hist_efficiency'.format(resultpath)
         if not os.path.exists(pth):
             os.system('mkdir -p {0}'.format(pth))
-        export_svgs(self.p_efficiency,filename='{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp))
+        fname = '{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp)
+        export_svgs(self.p_efficiency,filename=fname)
+        if inkscape:
+            os.system('{0} --without-gui {1} --export-pdf={2}'.format(inkscape,fname,fname.replace('.svg','.pdf')))
+            os.system('rm {0}'.format(fname))
+
         pth = '{0}/hist_completeness'.format(resultpath)
         if not os.path.exists(pth):
             os.system('mkdir -p {0}'.format(pth))
-        export_svgs(self.p_completeness,filename='{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp))
+        fname = '{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp)
+        export_svgs(self.p_completeness,filename=fname)
+        if inkscape:
+            os.system('{0} --without-gui {1} --export-pdf={2}'.format(inkscape,fname,fname.replace('.svg','.pdf')))
+            os.system('rm {0}'.format(fname))
+
         pth = '{0}/hist_found_silhouette'.format(resultpath)
         if not os.path.exists(pth):
             os.system('mkdir -p {0}'.format(pth))
-        export_svgs(self.p_found_silhouette,filename='{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp))
+        fname = '{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp)
+        export_svgs(self.p_found_silhouette,filename=fname)
+        if inkscape:
+            os.system('{0} --without-gui {1} --export-pdf={2}'.format(inkscape,fname,fname.replace('.svg','.pdf')))
+            os.system('rm {0}'.format(fname))
+
         pth = '{0}/hist_matched_silhouette'.format(resultpath)
         if not os.path.exists(pth):
             os.system('mkdir -p {0}'.format(pth))
-        export_svgs(self.p_matched_silhouette,filename='{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp))
+        fname = '{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp)
+        export_svgs(self.p_matched_silhouette,filename=fname)
+        if inkscape:
+            os.system('{0} --without-gui {1} --export-pdf={2}'.format(inkscape,fname,fname.replace('.svg','.pdf')))
+            os.system('rm {0}'.format(fname))
+
         pth = '{0}/hist_found_size'.format(resultpath)
         if not os.path.exists(pth):
             os.system('mkdir -p {0}'.format(pth))
-        export_svgs(self.p_found_size,filename='{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp))
+        fname = '{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp)
+        export_svgs(self.p_found_size,filename=fname)
+        if inkscape:
+            os.system('{0} --without-gui {1} --export-pdf={2}'.format(inkscape,fname,fname.replace('.svg','.pdf')))
+            os.system('rm {0}'.format(fname))
+
         pth = '{0}/hist_matched_size'.format(resultpath)
         if not os.path.exists(pth):
             os.system('mkdir -p {0}'.format(pth))
-        export_svgs(self.p_matched_size,filename='{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp))
+        fname = '{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp)
+        export_svgs(self.p_matched_size,filename=fname)
+        if inkscape:
+            os.system('{0} --without-gui {1} --export-pdf={2}'.format(inkscape,fname,fname.replace('.svg','.pdf')))
+            os.system('rm {0}'.format(fname))
+
         self.saveplots.button_type='primary'
         self.saveplots.label = 'Save plots'
 
@@ -824,19 +862,38 @@ hmsz.change.emit();
         pth = '{0}/scatter_linear'.format(resultpath)
         if not os.path.exists(pth):
             os.system('mkdir -p {0}'.format(pth))
-        export_svgs(self.p1,filename='{0}/{1}_vs_{2}_case{3}_eps{4}_min{5}_{6}.svg'.format(pth,xkey,ykey,self.epsval,self.minval,self.case,self.timestamp))
+        fname = '{0}/{1}_vs_{2}_case{3}_eps{4}_min{5}_{6}.svg'.format(pth,xkey,ykey,self.epsval,self.minval,self.case,self.timestamp)
+        export_svgs(self.p1,filename=fname)
+        if inkscape:
+            os.system('{0} --without-gui {1} --export-pdf={2}'.format(inkscape,fname,fname.replace('.svg','.pdf')))
+            os.system('rm {0}'.format(fname))
+
         pth = '{0}/scatter_semilogx'.format(resultpath)
         if not os.path.exists(pth):
             os.system('mkdir -p {0}'.format(pth))
-        export_svgs(self.p2,filename='{0}/{1}_vs_{2}_case{3}_eps{4}_min{5}_{6}.svg'.format(pth,xkey,ykey,self.epsval,self.minval,self.case,self.timestamp))
+        fname = '{0}/{1}_vs_{2}_case{3}_eps{4}_min{5}_{6}.svg'.format(pth,xkey,ykey,self.epsval,self.minval,self.case,self.timestamp)
+        export_svgs(self.p2,filename=fname)
+        if inkscape:
+            os.system('{0} --without-gui {1} --export-pdf={2}'.format(inkscape,fname,fname.replace('.svg','.pdf')))
+            os.system('rm {0}'.format(fname))
+
         pth = '{0}/scatter_semilogy'.format(resultpath)
         if not os.path.exists(pth):
             os.system('mkdir -p {0}'.format(pth))
-        export_svgs(self.p3,filename='{0}/{1}_vs_{2}_case{3}_eps{4}_min{5}_{6}.svg'.format(pth,xkey,ykey,self.epsval,self.minval,self.case,self.timestamp))
+        fname = '{0}/{1}_vs_{2}_case{3}_eps{4}_min{5}_{6}.svg'.format(pth,xkey,ykey,self.epsval,self.minval,self.case,self.timestamp)
+        export_svgs(self.p3,filename=fname)
+        if inkscape:
+            os.system('{0} --without-gui {1} --export-pdf={2}'.format(inkscape,fname,fname.replace('.svg','.pdf')))
+            os.system('rm {0}'.format(fname))
+
         pth = '{0}/scatter_loglog'.format(resultpath)
         if not os.path.exists(pth):
             os.system('mkdir -p {0}'.format(pth)) 
-        export_svgs(self.p4,filename='{0}/{1}_vs_{2}_case{3}_eps{4}_min{5}_{6}.svg'.format(pth,xkey,ykey,self.epsval,self.minval,self.case,self.timestamp))
+        fname = '{0}/{1}_vs_{2}_case{3}_eps{4}_min{5}_{6}.svg'.format(pth,xkey,ykey,self.epsval,self.minval,self.case,self.timestamp)
+        export_svgs(self.p4,filename=fname)
+        if inkscape:
+            os.system('{0} --without-gui {1} --export-pdf={2}'.format(inkscape,fname,fname.replace('.svg','.pdf')))
+            os.system('rm {0}'.format(fname))
 
 
 starter = display_result(case='8',timestamp='2018-07-18.12.04.04.618630',pad=0.1)
