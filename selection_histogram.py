@@ -95,13 +95,13 @@ class read_results(object):
         self.numms = []
         self.goodind = 0
         for row in range(self.labels_pred.shape[0]):
-            labs,labcount = membercount(self.labels_pred[row])
+            labcount,labs = membercount(self.labels_pred[row])
             bad = np.where(labs==-1)
             if len(bad[0])>0:
                 labs = np.delete(labs,bad[0][0])
                 labcount = np.delete(labcount,bad[0][0])
             self.numcs.append(len(labs))
-            self.numms.append(len(labcount))
+            self.numms.append(labcount)
         self.numcs = np.array(self.numcs)
         self.goodinds = np.where(self.numcs > 3)
         if len(self.goodinds[0]) > 0:
@@ -113,19 +113,35 @@ class read_results(object):
         self.epsval = self.eps[self.goodind]
         self.minval = self.min_samples[self.goodind]
         self.paramchoices = []
+        self.ticklabels = []
         for i in range(len(self.eps)):
             self.paramchoices.append('eps={0}, min={1}'.format(self.eps[i],self.min_samples[i]))
+            self.ticklabels.append('{0}, {1}'.format(self.eps[i],self.min_samples[i]))
         self.paramlist = list(np.array(self.paramchoices)[self.goodinds])
 
     def generate_average_stats(self,minmem=1):
         self.avgeffs = np.zeros(len(self.eps))
         self.avgcoms = np.zeros(len(self.eps))
-        self.avgfsil = np.zeros(len(self.eps))
+        self.avgfsil = -np.ones(len(self.eps))
+        self.avgmsil = -np.ones(len(self.eps))
 
         for e,eps in enumerate(self.eps):
-            sizes = self.numm[e]
-            read_run_data(eps=eps,min_sample=self.min_samples[e],update=True)
-            vals = sizes > minmem
+            if e in self.goodinds[0]:
+                sizes = self.numms[e]
+                self.read_run_data(eps=eps,min_sample=self.min_samples[e],update=True)
+                vals = sizes > minmem
+                self.avgeffs[e] = np.mean(self.eff[vals])
+                self.avgcoms[e] = np.mean(self.com[vals])
+                self.avgfsil[e] = np.mean(self.fsil[vals])
+                self.avgmsil[e] = np.mean(self.msil[vals])
+        normnumc = self.numcs/len(self.tsize)
+        xvals = np.arange(len(self.ticklabels))
+        self.statsource = {'params':self.ticklabels,'numc':normnumc,
+                           'avgeff':self.avgeffs,'avgcom':self.avgcoms,
+                           'avgfsi':self.avgfsil,'avgmsi':self.avgmsil,
+                           'xvals':xvals}
+        self.statsource = ColumnDataSource(self.statsource)
+        self.sourcedict['statsource'] = self.statsource
 
     def read_run_data(self,eps=None,min_sample=None,update=False):
         if eps:
@@ -258,11 +274,14 @@ hmsz.change.emit();
             print("Didn't find any clusters for any parameter choices with {0} this run".format(typenames[self.dtype]))
         elif not self.allbad:
             self.read_run_data()
+            self.generate_average_stats()
+            self.stat_plots()
             self.center_plot()
             self.histograms()
             self.buttons()
             # Here's where you decide the distribution of plots
-            self.layout = row(column(widgetbox(self.toggleline),widgetbox(self.xradio,name='x-axis'),
+            self.layout = column(row(self.s1,self.s2,self.s3,self.s4,self.s5),
+                                row(column(widgetbox(self.toggleline),widgetbox(self.xradio,name='x-axis'),
                             widgetbox(self.yradio,name='y-axis'),
                             widgetbox(self.selectcase),
                             widgetbox(self.selecttime),
@@ -272,7 +291,7 @@ hmsz.change.emit();
                             widgetbox(self.saveplots)),
                      column(Tabs(tabs=self.panels,width=self.sqside),row(self.p_found_size,self.p_matched_size)),
                      column(self.p_efficiency,self.p_found_silhouette),
-                     column(self.p_completeness,self.p_matched_silhouette),)
+                     column(self.p_completeness,self.p_matched_silhouette),))
 
             # Activate buttons
             self.r1.data_source.on_change('selected', self.updatetophist)
@@ -301,6 +320,60 @@ hmsz.change.emit();
         self.outcolor = "#280004" #dark red black
         return [self.bcolor,self.unscolor,self.outcolor,
                 self.histcolor,self.maincolor]
+
+    def stat_plots(self):
+        self.s1 = figure(plot_width=250,plot_height=150,min_border=10,
+                         x_axis_location='below', y_axis_location='left',
+                         x_axis_type='linear',y_axis_type='linear',
+                         output_backend='svg',toolbar_location=None,
+                         y_range=(-0.03,1.03),y_axis_label='Fraction Found')
+        self.s1.background_fill_color = self.bcolor
+        self.c1 = self.s1.scatter(x='xvals',y='numc',source=self.statsource,color=self.maincolor,size=3)
+        self.label_stat_xaxis(self.s1)
+
+        self.s2 = figure(plot_width=250,plot_height=150,min_border=10,
+                         x_axis_location='below', y_axis_location='left',
+                         x_axis_type='linear',y_axis_type='linear',
+                         output_backend='svg',toolbar_location=None,
+                         y_range=(-0.03,1.03),y_axis_label='Efficiency')
+        self.s2.background_fill_color = self.bcolor
+        self.c2 = self.s2.scatter(x='xvals',y='avgeff',source=self.statsource,color=self.maincolor,size=3)
+        self.label_stat_xaxis(self.s2)
+
+        self.s3 = figure(plot_width=250,plot_height=150,min_border=10,
+                         x_axis_location='below', y_axis_location='left',
+                         x_axis_type='linear',y_axis_type='linear',
+                         output_backend='svg',toolbar_location=None,
+                         y_range=(-0.03,1.03),y_axis_label='Completeness')
+        self.s3.background_fill_color = self.bcolor
+        self.c3 = self.s3.scatter(x='xvals',y='avgcom',source=self.statsource,color=self.maincolor,size=3)
+        self.label_stat_xaxis(self.s3)
+
+        self.s4 = figure(plot_width=250,plot_height=150,min_border=10,
+                         x_axis_location='below', y_axis_location='left',
+                         x_axis_type='linear',y_axis_type='linear',
+                         output_backend='svg',toolbar_location=None,
+                         y_range=(-1.06,1.06),y_axis_label='Found Silhouette')
+        self.s4.background_fill_color = self.bcolor
+        self.c4 = self.s4.scatter(x='xvals',y='avgfsi',source=self.statsource,color=self.maincolor,size=3)
+        self.label_stat_xaxis(self.s4)
+
+        self.s5 = figure(plot_width=250,plot_height=150,min_border=10,
+                         x_axis_location='below', y_axis_location='left',
+                         x_axis_type='linear',y_axis_type='linear',
+                         output_backend='svg',toolbar_location=None,
+                         y_range=(-1.06,1.06),y_axis_label='Matched Silhouette')
+        self.s5.background_fill_color = self.bcolor
+        self.c5 = self.s5.scatter(x='xvals',y='avgmsi',source=self.statsource,color=self.maincolor,size=3)
+        self.label_stat_xaxis(self.s5)
+
+    def label_stat_xaxis(self,plot):
+        xvals = list(self.statsource.data['xvals'])
+        param = list(self.statsource.data['params'])
+        plot.xaxis.ticker = xvals
+        overrides = dict(zip(list(np.array(xvals).astype(str)), param))
+        plot.xaxis.major_label_overrides = overrides 
+        plot.xaxis.major_label_orientation = np.pi/4
 
     def center_plot(self,xlabel=None,ylabel=None):
         self.panels = []
