@@ -16,7 +16,7 @@ from clustering_stats import *
 from bokeh.layouts import row, column, widgetbox
 from bokeh.models import BoxSelectTool, LassoSelectTool, Spacer,CustomJS
 from bokeh.models.glyphs import Circle
-from bokeh.models.widgets import Toggle,RadioButtonGroup,AutocompleteInput,Tabs, Panel, Select, Button
+from bokeh.models.widgets import Toggle,RadioButtonGroup,AutocompleteInput,Tabs, Panel, Select, Button, TextInput
 from bokeh.plotting import figure, curdoc, ColumnDataSource, reset_output
 from bokeh.io import show, export_svgs
 from bokeh import events
@@ -120,26 +120,35 @@ class read_results(object):
         self.paramlist = list(np.array(self.paramchoices)[self.goodinds])
 
     def generate_average_stats(self,minmem=1):
-        self.avgeffs = np.zeros(len(self.eps))
-        self.avgcoms = np.zeros(len(self.eps))
-        self.avgfsil = -np.ones(len(self.eps))
-        self.avgmsil = -np.ones(len(self.eps))
+        effs = np.zeros(len(self.eps))
+        coms = np.zeros(len(self.eps))
+        fsil = -np.ones(len(self.eps))
+        msil = -np.ones(len(self.eps))
+        numc = 0.01*np.ones(len(self.eps))
+        alph = 0.7*np.ones(len(self.eps))
+        self.maxmem = 1
 
         for e,eps in enumerate(self.eps):
             if e in self.goodinds[0]:
                 sizes = self.numms[e]
                 self.read_run_data(eps=eps,min_sample=self.min_samples[e],update=True)
                 vals = sizes > minmem
-                self.avgeffs[e] = np.mean(self.eff[vals])
-                self.avgcoms[e] = np.mean(self.com[vals])
-                self.avgfsil[e] = np.mean(self.fsil[vals])
-                self.avgmsil[e] = np.mean(self.msil[vals])
-        normnumc = self.numcs/len(self.tsize)
+                if np.sum(vals) > 0:
+                    numc[e] = len(sizes[vals])
+                    effs[e] = np.mean(self.eff[vals])
+                    coms[e] = np.mean(self.com[vals])
+                    fsil[e] = np.mean(self.fsil[vals])
+                    msil[e] = np.mean(self.msil[vals])
+                self.maxmem = np.max([self.maxmem,np.max(sizes)])
+        tnumc = np.array([len(self.tsize[self.tsize>minmem])]*len(self.eps))
+        tnumc[tnumc < 1] = 0.01
+        print('tnumc',tnumc)
         xvals = np.arange(len(self.ticklabels))
-        self.statsource = {'params':self.ticklabels,'numc':normnumc,
-                           'avgeff':self.avgeffs,'avgcom':self.avgcoms,
-                           'avgfsi':self.avgfsil,'avgmsi':self.avgmsil,
-                           'xvals':xvals}
+        self.statsource = {'params':self.ticklabels,'numc':numc,
+                           'avgeff':effs,'avgcom':coms,
+                           'avgfsi':fsil,'avgmsi':msil,
+                           'xvals':xvals,'alphas':alph,
+                           'tnumc':tnumc}
         self.statsource = ColumnDataSource(self.statsource)
         self.sourcedict['statsource'] = self.statsource
 
@@ -281,7 +290,8 @@ hmsz.change.emit();
             self.buttons()
             # Here's where you decide the distribution of plots
             self.layout = column(row(self.s1,self.s2,self.s3,self.s4,self.s5),
-                                row(column(widgetbox(self.toggleline),widgetbox(self.xradio,name='x-axis'),
+                                row(column(widgetbox(self.minsize), widgetbox(self.toggleline),
+                                    widgetbox(self.xradio,name='x-axis'),
                             widgetbox(self.yradio,name='y-axis'),
                             widgetbox(self.selectcase),
                             widgetbox(self.selecttime),
@@ -322,13 +332,17 @@ hmsz.change.emit();
                 self.histcolor,self.maincolor]
 
     def stat_plots(self):
+        vals = np.max(np.concatenate((self.statsource.data['numc'],self.statsource.data['tnumc'])))*1.1
+        if vals < 0.8:
+            vals = 1.2
         self.s1 = figure(plot_width=250,plot_height=150,min_border=10,
                          x_axis_location='below', y_axis_location='left',
-                         x_axis_type='linear',y_axis_type='linear',
+                         x_axis_type='linear',y_axis_type='log',
                          output_backend='svg',toolbar_location=None,
-                         y_range=(-0.03,1.03),y_axis_label='Fraction Found')
+                         y_axis_label='Fraction Found',y_range=(0.8,vals))
         self.s1.background_fill_color = self.bcolor
         self.c1 = self.s1.scatter(x='xvals',y='numc',source=self.statsource,color=self.maincolor,size=3)
+        self.c1l = self.s1.line(x='xvals',y='tnumc',source=self.statsource,color=self.outcolor)
         self.label_stat_xaxis(self.s1)
 
         self.s2 = figure(plot_width=250,plot_height=150,min_border=10,
@@ -624,6 +638,10 @@ hmsz.change.emit();
 
         timelist = glob.glob('case{0}*.hdf5'.format(self.case))
         times = np.array([i.split('_')[1].split('.hdf5')[0] for i in timelist])[::-1]
+
+
+        self.minsize = TextInput(value="1", title="Minimum size - choose between 1 and {0}:".format(int(self.maxmem)))
+        self.minsize.on_change('value',self.updatestatplot)
 
         self.labels = list(self.source.data.keys())
 
@@ -993,6 +1011,26 @@ hmsz.change.emit();
             if inkscape:
                 os.system('{0} --without-gui {1} --export-pdf={2}'.format(inkscape,fname,fname.replace('.svg','.pdf')))
                 os.system('rm {0}'.format(fname))
+
+    def updatestatplot(self, attr, old, new):
+        num = int(new)
+        self.generate_average_stats(minmem=num)
+        vals = np.max(np.concatenate((self.statsource.data['numc'],self.statsource.data['tnumc'])))*1.1
+        if vals < 0.8:
+            vals = 1.2
+        self.s1.y_range.end = vals
+        self.c1.data_source.data['numc'] = self.statsource.data['numc']
+        self.c1.glyph.y = 'numc'
+        self.c1l.data_source.data['tnumc'] = self.statsource.data['tnumc']
+        self.c1l.glyph.y = 'tnumc'
+        self.c2.data_source.data['avgeff'] = self.statsource.data['avgeff']
+        self.c2.glyph.y = 'avgeff'
+        self.c3.data_source.data['avgcom'] = self.statsource.data['avgcom']
+        self.c3.glyph.y = 'avgcom'
+        self.c4.data_source.data['avgfsi'] = self.statsource.data['avgfsi']
+        self.c4.glyph.y = 'avgfsi'
+        self.c5.data_source.data['avgmsi'] = self.statsource.data['avgmsi']
+        self.c5.glyph.y = 'avgmsi'
 
 
 starter = display_result(case='8',timestamp='2018-07-18.12.04.04.618630',pad=0.1)
