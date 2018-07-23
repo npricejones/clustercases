@@ -71,8 +71,6 @@ class read_results(object):
     def read_base_data(self,datatype=None,case=None,timestamp=None,neighbours=20):
         self.allbad = False
         self.data = h5py.File('case{0}_{1}.hdf5'.format(self.case,self.timestamp),'r+')
-        if datatype:
-            self.dtype = datatype
         if case:
             self.case = case
         if timestamp:
@@ -87,6 +85,11 @@ class read_results(object):
         #self.chemspace = self.data['{0}'.format(self.dtype)][:]
         #self.labels_true = self.data['labels_true'][:]
         self.tsize = self.data['true_size'][:]
+        self.read_dtype_data(datatype=dtype)
+        
+    def read_dtype_data(self,datatype='spec'):
+        if datatype:
+            self.dtype = datatype
         self.tsil = self.data['{0}_true_sil_neigh{1}'.format(self.dtype,neighbours)][:]
         # scrub nans
         self.tsil[np.isnan(self.tsil)]=-1
@@ -120,37 +123,41 @@ class read_results(object):
         self.paramlist = list(np.array(self.paramchoices)[self.goodinds])
 
     def generate_average_stats(self,minmem=1):
-        effs = np.zeros(len(self.eps))
-        coms = np.zeros(len(self.eps))
-        fsil = -np.ones(len(self.eps))
-        msil = -np.ones(len(self.eps))
-        numc = 0.01*np.ones(len(self.eps))
-        alph = 0.7*np.ones(len(self.eps))
+        vintdtype = copy.deepcopy(self.dtype)
         self.maxmem = 1
 
-        for e,eps in enumerate(self.eps):
-            if e in self.goodinds[0]:
-                sizes = self.numms[e]
-                self.read_run_data(eps=eps,min_sample=self.min_samples[e],update=True)
-                vals = sizes > minmem
-                if np.sum(vals) > 0:
-                    numc[e] = len(sizes[vals])
-                    effs[e] = np.mean(self.eff[vals])
-                    coms[e] = np.mean(self.com[vals])
-                    fsil[e] = np.mean(self.fsil[vals])
-                    msil[e] = np.mean(self.msil[vals])
-                self.maxmem = np.max([self.maxmem,np.max(sizes)])
-        tnumc = np.array([len(self.tsize[self.tsize>minmem])]*len(self.eps))
-        tnumc[tnumc < 1] = 0.01
-        print('tnumc',tnumc)
-        xvals = np.arange(len(self.ticklabels))
-        self.statsource = {'params':self.ticklabels,'numc':numc,
-                           'avgeff':effs,'avgcom':coms,
-                           'avgfsi':fsil,'avgmsi':msil,
-                           'xvals':xvals,'alphas':alph,
-                           'tnumc':tnumc}
-        self.statsource = ColumnDataSource(self.statsource)
-        self.sourcedict['statsource'] = self.statsource
+        for d,dtype in enumerate(self.alldtypes):
+            dtype = nametypes[dtype]
+            self.read_dtype_data(datatype=dtype)
+            effs = np.zeros(len(self.eps))
+            coms = np.zeros(len(self.eps))
+            fsil = -np.ones(len(self.eps))
+            msil = -np.ones(len(self.eps))
+            numc = 0.01*np.ones(len(self.eps))
+            alph = 0.7*np.ones(len(self.eps))
+            for e,eps in enumerate(self.eps):
+                if e in self.goodinds[0]:
+                    sizes = self.numms[e]
+                    self.read_run_data(eps=eps,min_sample=self.min_samples[e],update=True)
+                    vals = sizes > minmem
+                    if np.sum(vals) > 0:
+                        numc[e] = len(sizes[vals])
+                        effs[e] = np.mean(self.eff[vals])
+                        coms[e] = np.mean(self.com[vals])
+                        fsil[e] = np.mean(self.fsil[vals])
+                        msil[e] = np.mean(self.msil[vals])
+                    self.maxmem = np.max([self.maxmem,np.max(sizes)])
+            tnumc = np.array([len(self.tsize[self.tsize>minmem])]*len(self.eps))
+            tnumc[tnumc < 1] = 0.01
+            xvals = np.arange(len(self.ticklabels))
+            statsource = {'params':self.ticklabels,'numc':numc,
+                               'avgeff':effs,'avgcom':coms,
+                               'avgfsi':fsil,'avgmsi':msil,
+                               'xvals':xvals,'alphas':alph,
+                               'tnumc':tnumc}
+            setattr(self,'{0}_statsource'.format(dtype),ColumnDataSource(statsource))
+            self.sourcedict['{0}_statsource'.format(dtype)] = getattr(self,'{0}_statsource'.format(dtype))
+        self.dtype = vintdtype
 
     def read_run_data(self,eps=None,min_sample=None,update=False):
         if eps:
@@ -328,22 +335,26 @@ hmsz.change.emit();
         self.maincolor = "#A53F2B" #dark red
         self.histcolor = "#F6BD60" #yellow
         self.outcolor = "#280004" #dark red black
+        self.colorlist = [self.unscolor,self.maincolor,self.outcolor]
         return [self.bcolor,self.unscolor,self.outcolor,
                 self.histcolor,self.maincolor]
 
     def stat_plots(self):
-        vals = np.max(np.concatenate((self.statsource.data['numc'],self.statsource.data['tnumc'])))*1.1
-        if vals < 0.8:
-            vals = 1.2
+        # vals = np.max(np.concatenate((self.statsource.data['numc'],self.statsource.data['tnumc'])))*1.1
+        # if vals < 0.8:
+        #     vals = 1.2
         self.s1 = figure(plot_width=250,plot_height=150,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='log',
                          output_backend='svg',toolbar_location=None,
-                         y_axis_label='Fraction Found',y_range=(0.8,vals))
+                         y_axis_label='Number Found',y_range=(0.8,1e3))
         self.s1.background_fill_color = self.bcolor
-        self.c1 = self.s1.scatter(x='xvals',y='numc',source=self.statsource,color=self.maincolor,size=3)
-        self.c1l = self.s1.line(x='xvals',y='tnumc',source=self.statsource,color=self.outcolor)
-        self.label_stat_xaxis(self.s1)
+        for d,dtype in enumerate(self.alldtypes):
+            dtype = nametypes[dtype]
+            c1 = self.s1.scatter(x='xvals',y='numc',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.colorlist[d],size=3)
+            setattr(self,'{0}_c1'.format(dtype),c1)
+        #self.c1l = self.s1.line(x='xvals',y='tnumc',source=self.statsource,color=self.outcolor)
+        #self.label_stat_xaxis(self.s1)
 
         self.s2 = figure(plot_width=250,plot_height=150,min_border=10,
                          x_axis_location='below', y_axis_location='left',
@@ -351,8 +362,12 @@ hmsz.change.emit();
                          output_backend='svg',toolbar_location=None,
                          y_range=(-0.03,1.03),y_axis_label='Efficiency')
         self.s2.background_fill_color = self.bcolor
-        self.c2 = self.s2.scatter(x='xvals',y='avgeff',source=self.statsource,color=self.maincolor,size=3)
-        self.label_stat_xaxis(self.s2)
+        for d,dtype in enumerate(self.alldtypes):
+            dtype = nametypes[dtype]
+            c2 = self.s2.scatter(x='xvals',y='avgeff',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.colorlist[d],size=3)
+            setattr(self,'{0}_c2'.format(dtype),c2)
+        #self.c2 = self.s2.scatter(x='xvals',y='avgeff',source=self.statsource,color=self.maincolor,size=3)
+        #self.label_stat_xaxis(self.s2)
 
         self.s3 = figure(plot_width=250,plot_height=150,min_border=10,
                          x_axis_location='below', y_axis_location='left',
@@ -360,8 +375,12 @@ hmsz.change.emit();
                          output_backend='svg',toolbar_location=None,
                          y_range=(-0.03,1.03),y_axis_label='Completeness')
         self.s3.background_fill_color = self.bcolor
-        self.c3 = self.s3.scatter(x='xvals',y='avgcom',source=self.statsource,color=self.maincolor,size=3)
-        self.label_stat_xaxis(self.s3)
+        for d,dtype in enumerate(self.alldtypes):
+            dtype = nametypes[dtype]
+            c3 = self.s3.scatter(x='xvals',y='avgcom',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.colorlist[d],size=3)
+            setattr(self,'{0}_c3'.format(dtype),c3)
+        #self.c3 = self.s3.scatter(x='xvals',y='avgcom',source=self.statsource,color=self.maincolor,size=3)
+        #self.label_stat_xaxis(self.s3)
 
         self.s4 = figure(plot_width=250,plot_height=150,min_border=10,
                          x_axis_location='below', y_axis_location='left',
@@ -369,8 +388,12 @@ hmsz.change.emit();
                          output_backend='svg',toolbar_location=None,
                          y_range=(-1.06,1.06),y_axis_label='Found Silhouette')
         self.s4.background_fill_color = self.bcolor
-        self.c4 = self.s4.scatter(x='xvals',y='avgfsi',source=self.statsource,color=self.maincolor,size=3)
-        self.label_stat_xaxis(self.s4)
+        for d,dtype in enumerate(self.alldtypes):
+            dtype = nametypes[dtype]
+            c4 = self.s4.scatter(x='xvals',y='avgfsi',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.colorlist[d],size=3)
+            setattr(self,'{0}_c4'.format(dtype),c4)
+        #self.c4 = self.s4.scatter(x='xvals',y='avgfsi',source=self.statsource,color=self.maincolor,size=3)
+        #self.label_stat_xaxis(self.s4)
 
         self.s5 = figure(plot_width=250,plot_height=150,min_border=10,
                          x_axis_location='below', y_axis_location='left',
@@ -378,8 +401,12 @@ hmsz.change.emit();
                          output_backend='svg',toolbar_location=None,
                          y_range=(-1.06,1.06),y_axis_label='Matched Silhouette')
         self.s5.background_fill_color = self.bcolor
-        self.c5 = self.s5.scatter(x='xvals',y='avgmsi',source=self.statsource,color=self.maincolor,size=3)
-        self.label_stat_xaxis(self.s5)
+        for d,dtype in enumerate(self.alldtypes):
+            dtype = nametypes[dtype]
+            c5 = self.s5.scatter(x='xvals',y='avgmsi',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.colorlist[d],size=3)
+            setattr(self,'{0}_c5'.format(dtype),c5)
+        #self.c5 = self.s5.scatter(x='xvals',y='avgmsi',source=self.statsource,color=self.maincolor,size=3)
+        #self.label_stat_xaxis(self.s5)
 
     def label_stat_xaxis(self,plot):
         xvals = list(self.statsource.data['xvals'])
@@ -392,9 +419,9 @@ hmsz.change.emit();
     def center_plot(self,xlabel=None,ylabel=None):
         self.panels = []
         if not xlabel:
-            xlabel = 'Found Size'
+            xlabel = 'Efficiency'
         if not ylabel:
-            ylabel = 'Found Silhouette'
+            ylabel = 'Completeness'
         x = self.source.data[xlabel]
         y = self.source.data[ylabel]
         axlims,lineparams = findextremes(x,y,pad=self.pad)
@@ -1015,22 +1042,30 @@ hmsz.change.emit();
     def updatestatplot(self, attr, old, new):
         num = int(new)
         self.generate_average_stats(minmem=num)
-        vals = np.max(np.concatenate((self.statsource.data['numc'],self.statsource.data['tnumc'])))*1.1
-        if vals < 0.8:
-            vals = 1.2
-        self.s1.y_range.end = vals
-        self.c1.data_source.data['numc'] = self.statsource.data['numc']
-        self.c1.glyph.y = 'numc'
-        self.c1l.data_source.data['tnumc'] = self.statsource.data['tnumc']
-        self.c1l.glyph.y = 'tnumc'
-        self.c2.data_source.data['avgeff'] = self.statsource.data['avgeff']
-        self.c2.glyph.y = 'avgeff'
-        self.c3.data_source.data['avgcom'] = self.statsource.data['avgcom']
-        self.c3.glyph.y = 'avgcom'
-        self.c4.data_source.data['avgfsi'] = self.statsource.data['avgfsi']
-        self.c4.glyph.y = 'avgfsi'
-        self.c5.data_source.data['avgmsi'] = self.statsource.data['avgmsi']
-        self.c5.glyph.y = 'avgmsi'
+        # vals = np.max(np.concatenate((self.statsource.data['numc'],self.statsource.data['tnumc'])))*1.1
+        # if vals < 0.8:
+        #     vals = 1.2
+        # self.s1.y_range.end = vals
+        for dtype in self.alldtypes:
+            dtype = nametypes[dtype]
+            ss = getattr(self,'{0}_statsource'.format(dtype))
+            c1 = getattr(self,'{0}_c1'.format(dtype))
+            c2 = getattr(self,'{0}_c2'.format(dtype))
+            c3 = getattr(self,'{0}_c3'.format(dtype))
+            c4 = getattr(self,'{0}_c4'.format(dtype))
+            c5 = getattr(self,'{0}_c5'.format(dtype))
+            c1.data_source.data['numc'] = ss.data['numc']
+            c1.glyph.y = 'numc'
+            #c1l.data_source.data['tnumc'] = ss.data['tnumc']
+            #c1l.glyph.y = 'tnumc'
+            c2.data_source.data['avgeff'] = ss.data['avgeff']
+            c2.glyph.y = 'avgeff'
+            c3.data_source.data['avgcom'] = ss.data['avgcom']
+            c3.glyph.y = 'avgcom'
+            c4.data_source.data['avgfsi'] = ss.data['avgfsi']
+            c4.glyph.y = 'avgfsi'
+            c5.data_source.data['avgmsi'] = ss.data['avgmsi']
+            c5.glyph.y = 'avgmsi'
 
 
 starter = display_result(case='8',timestamp='2018-07-18.12.04.04.618630',pad=0.1)
