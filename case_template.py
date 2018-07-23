@@ -387,13 +387,14 @@ class caserun(object):
 if __name__=='__main__':
     case7 = caserun()
     start = time.time()
-    self.clustering(case7.specinfo.spectra,'spec',eps,min_samples,metric='precomputed',
+    case7.clustering(case7.specinfo.spectra,'spec',eps,min_samples,metric='precomputed',
                     neighbours = 20,normeps=normeps)
-    self.clustering(case7.abundances,'abun',eps,min_samples,metric='precomputed',
+    case7.clustering(case7.abundances,'abun',eps,min_samples,metric='precomputed',
                     neighbours = 20,normeps=normeps)
     wind = combine_windows(windows = tophats,combelem=elem)
-    self.projspec(wind)
-    self.clustering(case7.projectspec,'wind',eps,min_samples,metric='precomputed',
+    case7.projspec(wind)
+    case7.clustering(case7.projectspec,'wind',eps,min_samples,metric='precomputed',
                     neighbours = 20,normeps=normeps)
     end = time.time()
+    case7.finish()
     print('Finished desired clustering in {0} seconds'.format(end-start))

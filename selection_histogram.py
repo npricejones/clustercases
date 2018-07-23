@@ -92,13 +92,16 @@ class read_results(object):
         self.tsil[np.isnan(self.tsil)]=-1
         self.labels_pred = self.data['{0}_labels_pred'.format(self.dtype)][:]
         self.numcs = []
+        self.numms = []
         self.goodind = 0
         for row in range(self.labels_pred.shape[0]):
-            labs = np.unique(self.labels_pred[row])
+            labs,labcount = membercount(self.labels_pred[row])
             bad = np.where(labs==-1)
             if len(bad[0])>0:
                 labs = np.delete(labs,bad[0][0])
+                labcount = np.delete(labcount,bad[0][0])
             self.numcs.append(len(labs))
+            self.numms.append(len(labcount))
         self.numcs = np.array(self.numcs)
         self.goodinds = np.where(self.numcs > 3)
         if len(self.goodinds[0]) > 0:
@@ -113,6 +116,16 @@ class read_results(object):
         for i in range(len(self.eps)):
             self.paramchoices.append('eps={0}, min={1}'.format(self.eps[i],self.min_samples[i]))
         self.paramlist = list(np.array(self.paramchoices)[self.goodinds])
+
+    def generate_average_stats(self,minmem=1):
+        self.avgeffs = np.zeros(len(self.eps))
+        self.avgcoms = np.zeros(len(self.eps))
+        self.avgfsil = np.zeros(len(self.eps))
+
+        for e,eps in enumerate(self.eps):
+            sizes = self.numm[e]
+            read_run_data(eps=eps,min_sample=self.min_samples[e],update=True)
+            vals = sizes > minmem
 
     def read_run_data(self,eps=None,min_sample=None,update=False):
         if eps:
