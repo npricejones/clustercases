@@ -69,6 +69,7 @@ elem = ['C','N','O','Na','Mg','Al','Si','S','K','Ca','Ti','V','Fe','Ni']
 
 tophats = np.load('tophat_elems.npy')
 windows = np.load('window_elems.npy')
+normeps = True
 
 def combine_windows(windows = tophats,combelem=elem):
     """
@@ -312,7 +313,8 @@ class caserun(object):
             arr = np.array(arr)
         if isinstance(arr,np.ndarray):
             if len(arr.shape) == 1:
-                self.projectspec = np.dot(arr,self.specinfo.spectra)
+                arr = np.tile(arr,(self.mem,1))
+                self.projectspec = arr*self.specinfo.spectra
 
     def clustering(self,arr,name,eps,min_samples,metric='precomputed',neighbours = 20,normeps=False):
 
@@ -350,6 +352,7 @@ class caserun(object):
             if len(bad[0])>0:
                 plabs = np.delete(plabs,bad[0][0])
                 pcount = np.delete(pcount,bad[0][0])
+            print(eps[i],min_samples[i],len(pcount))
             efficiency, completeness, plabs, matchtlabs = efficiency_completeness(db.labels_,self.labels_true,minmembers=1)
             if len(plabs) > 5:
                 k = neighbours
@@ -375,12 +378,12 @@ class caserun(object):
             cbn[i][noise] = -1
             noise = np.where(db.labels_==-1)
             end = time.time()
-            print('Done DBSCAN {0} of {1} with eps {2} and min neighbours {3} on {4} - {5} seconds'.format(i+1,len(seps),seps[i],smin_samples[i],name,np.round(end-start,2)))
+            print('Done DBSCAN {0} of {1} with eps {2} and min neighbours {3} on {4} - {5} seconds'.format(i+1,len(eps),eps[i],min_samples[i],name,np.round(end-start,2)))
             print('I found {0} out of {1} clusters'.format(len(plabs),self.numc)) 
         self.plot['{0}_labels_pred'.format(name)] = labels_pred
         self.plot['{0}_cbn'.format(name)] = cbn
 
-    def finish(self)
+    def finish(self):
         self.plot.close()
         print('I saved everything in {0}'.format(self.pfname))
 
