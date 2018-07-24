@@ -169,8 +169,8 @@ class read_results(object):
                                'tnumc':tnumc}
             setattr(self,'{0}_statsource'.format(dtype),ColumnDataSource(statsource))
             if not update:
-                self.sourcedict['{0}_statsource'.format(dtype)] = getattr(self,'{0}_statsource'.format(dtype))
-            self.sourcedict['{0}_newstatsource'.format(dtype)] = getattr(self,'{0}_statsource'.format(dtype))
+                self.sourcedict['{0}source'.format(dtype)] = getattr(self,'{0}_statsource'.format(dtype))
+            self.sourcedict['new{0}source'.format(dtype)] = getattr(self,'{0}_statsource'.format(dtype))
         self.dtype = vintdtype
 
     def read_run_data(self,eps=None,min_sample=None,update=False):
@@ -218,85 +218,31 @@ class display_result(read_results):
         
 # MODIFY FOR OLD SOURCE
 
-    def JScallback(self,):
+    def JScallback(self):
         """
         Makes custom JavaScript callback from bokeh so you can easily swap source dictionaries.
-        """
-        self.callbackstr ="""
-var sdata = source.data;
-var ndata = newsource.data;
-var eff = heff.data;
-var com = hcom.data;
-var fsi = hfsi.data;
-var msi = hmsi.data;
-var fsz = hfsz.data;
-var msz = hmsz.data;
-var neweff = newheff.data;
-var newcom = newhcom.data;
-var newfsi = newhfsi.data;
-var newmsi = newhmsi.data;
-var newfsz = newhfsz.data;
-var newmsz = newhmsz.data;
+        """ 
 
-for (key in ndata) {
-    sdata[key] = [];
-    for (i=0;i<ndata[key].length;i++){
-    sdata[key].push(ndata[key][i]);
-    }
-}
+        self.callbackstr =''         
 
-for (key in neweff) {
-    eff[key] = [];
-    for (i=0;i<neweff[key].length;i++){
-    eff[key].push(neweff[key][i]);
-    }
-}
+        for key in list(self.sourcedict.keys()):
+            self.callbackstr += """
+var v{0} = {0}.data;""".format(key)
 
-for (key in newcom) {
-    com[key] = [];
-    for (i=0;i<newcom[key].length;i++){
-    com[key].push(newcom[key][i]);
-    }
-}
-
-for (key in newfsi) {
-    fsi[key] = [];
-    for (i=0;i<newfsi[key].length;i++){
-    fsi[key].push(newfsi[key][i]);
-    }
-}
-
-for (key in newmsi) {
-    msi[key] = [];
-    for (i=0;i<newmsi[key].length;i++){
-    msi[key].push(newmsi[key][i]);
-    }
-}
-
-for (key in newfsz) {
-    fsz[key] = [];
-    for (i=0;i<newfsz[key].length;i++){
-    fsz[key].push(newfsz[key][i]);
-    }
-}
-
-for (key in newmsz) {
-    msz[key] = [];
-    for (i=0;i<newmsz[key].length;i++){
-    msz[key].push(newmsz[key][i]);
-    }
-}
-
-console.log("hmm");
-source.change.emit();
-heff.change.emit();
-hcom.change.emit();
-hfsi.change.emit();
-hmsi.change.emit();
-hfsz.change.emit();
-hmsz.change.emit();
-
-"""
+        for key in list(self.sourcedict.keys()):
+            if 'new' not in key:
+                self.callbackstr += """
+for (key in vnew{0}) {{
+    v{0}[key] = [];
+    for (i=0;i<vnew{0}[key].length;i++){{
+    v{0}[key].push(vnew{0}[key][i]);
+    }}
+}}""".format(key)
+    
+        for key in list(self.sourcedict.keys()):
+            if 'new' not in key:
+                self.callbackstr += """
+{0}.change.emit();""".format(key)
 
     def layout_plots(self):
         self.read_base_data()
@@ -309,20 +255,32 @@ hmsz.change.emit();
             self.center_plot()
             self.histograms()
             self.buttons()
+
+            buttons = column(widgetbox(self.minsize,width=200,height=30), 
+                             widgetbox(self.toggleline,width=200,height=30),
+                             widgetbox(self.selectcase,width=200,height=30),
+                             widgetbox(self.selecttime,width=200,height=30),
+                             widgetbox(self.selectdtype,width=200,height=30),
+                             widgetbox(self.selectparam,width=200,height=30),
+                             widgetbox(self.loadbutton,width=200,height=30))
+            avgplots = row(column(self.s1,
+                                  self.s2),
+                           column(self.s4,
+                                  self.s3))
+            topplots = row(buttons,avgplots)
+
+            mainplot = row(Tabs(tabs=self.panels),
+                           column(widgetbox(self.xradio,width=440),
+                                  widgetbox(self.yradio,width=440),
+                                  row(self.p_found_size,
+                                      self.p_matched_size)))
+
+            histplot = row(self.p_efficiency,
+                           self.p_completeness,
+                           self.p_found_silhouette,
+                           self.p_matched_silhouette)
             # Here's where you decide the distribution of plots
-            self.layout = column(row(self.s1,self.s2,self.s3,self.s4,self.s5),
-                                row(column(widgetbox(self.minsize), widgetbox(self.toggleline),
-                                    widgetbox(self.xradio,name='x-axis'),
-                            widgetbox(self.yradio,name='y-axis'),
-                            widgetbox(self.selectcase),
-                            widgetbox(self.selecttime),
-                            widgetbox(self.selectdtype),
-                            widgetbox(self.selectparam),
-                            widgetbox(self.loadbutton),
-                            widgetbox(self.saveplots)),
-                     column(Tabs(tabs=self.panels,width=self.sqside),row(self.p_found_size,self.p_matched_size)),
-                     column(self.p_efficiency,self.p_found_silhouette),
-                     column(self.p_completeness,self.p_matched_silhouette),))
+            self.layout = column(topplots,mainplot,histplot)
 
             # Activate buttons
             self.r1.data_source.on_change('selected', self.updatetophist)
@@ -358,7 +316,7 @@ hmsz.change.emit();
                 self.histcolor,self.maincolor]
 
     def stat_plots(self):
-        self.s1 = figure(plot_width=250,plot_height=150,min_border=10,
+        self.s1 = figure(plot_width=350,plot_height=350,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='log',
                          output_backend='svg',toolbar_location=None,
@@ -373,7 +331,7 @@ hmsz.change.emit();
             setattr(self,'{0}_c1l'.format(dtype),c1l)
         self.label_stat_xaxis(self.s1,dtype=self.dtype)
 
-        self.s2 = figure(plot_width=250,plot_height=150,min_border=10,
+        self.s2 = figure(plot_width=350,plot_height=350,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='linear',
                          output_backend='svg',toolbar_location=None,
@@ -384,10 +342,8 @@ hmsz.change.emit();
             c2 = self.s2.scatter(x='xvals',y='avgeff',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.colorlist[d],size=5,alpha=0.6)
             setattr(self,'{0}_c2'.format(dtype),c2)
         self.label_stat_xaxis(self.s2,dtype=self.dtype)
-        #self.c2 = self.s2.scatter(x='xvals',y='avgeff',source=self.statsource,color=self.maincolor,size=5,alpha=0.6)
-        #self.label_stat_xaxis(self.s2)
 
-        self.s3 = figure(plot_width=250,plot_height=150,min_border=10,
+        self.s3 = figure(plot_width=350,plot_height=350,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='linear',
                          output_backend='svg',toolbar_location=None,
@@ -398,10 +354,8 @@ hmsz.change.emit();
             c3 = self.s3.scatter(x='xvals',y='avgcom',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.colorlist[d],size=5,alpha=0.6)
             setattr(self,'{0}_c3'.format(dtype),c3)
         self.label_stat_xaxis(self.s3,dtype=self.dtype)
-        #self.c3 = self.s3.scatter(x='xvals',y='avgcom',source=self.statsource,color=self.maincolor,size=5,alpha=0.6)
-        #self.label_stat_xaxis(self.s3)
 
-        self.s4 = figure(plot_width=250,plot_height=150,min_border=10,
+        self.s4 = figure(plot_width=350,plot_height=350,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='linear',
                          output_backend='svg',toolbar_location=None,
@@ -412,22 +366,7 @@ hmsz.change.emit();
             c4 = self.s4.scatter(x='xvals',y='avgfsi',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.colorlist[d],size=5,alpha=0.6)
             setattr(self,'{0}_c4'.format(dtype),c4)
         self.label_stat_xaxis(self.s4,dtype=self.dtype)
-        #self.c4 = self.s4.scatter(x='xvals',y='avgfsi',source=self.statsource,color=self.maincolor,size=5,alpha=0.6)
-        #self.label_stat_xaxis(self.s4)
 
-        self.s5 = figure(plot_width=250,plot_height=150,min_border=10,
-                         x_axis_location='below', y_axis_location='left',
-                         x_axis_type='linear',y_axis_type='linear',
-                         output_backend='svg',toolbar_location=None,
-                         y_range=(-1.06,1.06),y_axis_label='Matched Silhouette')
-        self.s5.background_fill_color = self.bcolor
-        for d,dtype in enumerate(self.alldtypes):
-            dtype = nametypes[dtype]
-            c5 = self.s5.scatter(x='xvals',y='avgmsi',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.colorlist[d],size=5,alpha=0.6)
-            setattr(self,'{0}_c5'.format(dtype),c5)
-        self.label_stat_xaxis(self.s5,dtype=self.dtype)
-        #self.c5 = self.s5.scatter(x='xvals',y='avgmsi',source=self.statsource,color=self.maincolor,size=5,alpha=0.6)
-        #self.label_stat_xaxis(self.s5)
 
     def label_stat_xaxis(self,plot,dtype='sepc'):
         ss = getattr(self,'{0}_statsource'.format(dtype))
@@ -694,8 +633,8 @@ hmsz.change.emit();
 
         self.labels = list(self.source.data.keys())
 
-        self.xradio = RadioButtonGroup(labels=self.labels, active=4,name='x-axis')
-        self.yradio = RadioButtonGroup(labels=self.labels, active=2,name='y-axis')
+        self.xradio = RadioButtonGroup(labels=self.labels, active=0,name='x-axis')
+        self.yradio = RadioButtonGroup(labels=self.labels, active=1,name='y-axis')
 
         self.selectcase = Select(title='case',value=self.case,options=list(cases))
         self.selectcase.on_change('value',self.updatecase)
@@ -875,6 +814,7 @@ hmsz.change.emit();
         self.sourcedict['newsource'] = self.source
         self.histograms(update=True)
         self.updateaxlim()
+        self.JScallback()
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
         self.loadbutton.button_type='success'
         self.loadbutton.label = 'Click to load new data'
@@ -884,6 +824,7 @@ hmsz.change.emit();
         self.loadbutton.label = 'Loading'
         dtype = nametypes[new]
         self.read_base_data(datatype=dtype)
+        self.generate_average_stats(minmem=int(self.minsize.value),update=True)
         if self.allbad:
             print("Didn't find any clusters for any parameter choices with {0} this run".format(typenames[self.dtype]))
             self.loadbutton.button_type='danger'
@@ -900,6 +841,7 @@ hmsz.change.emit();
             self.sourcedict['newsource'] = self.source
             self.histograms(update=True)
             self.updateaxlim()
+            self.JScallback()
             self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
             self.loadbutton.button_type='success'
             self.loadbutton.label = 'Click to load new data'
@@ -926,6 +868,7 @@ hmsz.change.emit();
         self.timestamp = new
         dtype = nametypes[self.selectdtype.value]
         self.read_base_data(case=self.case,timestamp=self.timestamp,datatype=dtype)
+        self.generate_average_stats(minmem=int(self.minsize.value),update=True)
         self.selectdtype.options = self.alldtypes
         if self.allbad:
             print("Didn't find any clusters for any parameter choices with {0} this run".format(typenames[self.dtype]))
@@ -943,6 +886,7 @@ hmsz.change.emit();
             self.sourcedict['newsource'] = self.source
             self.histograms(update=True)
             self.updateaxlim()
+            self.JScallback()
             self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
             self.loadbutton.button_type='success'
             self.loadbutton.label = 'Click to load new data'
@@ -1072,7 +1016,6 @@ hmsz.change.emit();
             c2 = getattr(self,'{0}_c2'.format(dtype))
             c3 = getattr(self,'{0}_c3'.format(dtype))
             c4 = getattr(self,'{0}_c4'.format(dtype))
-            c5 = getattr(self,'{0}_c5'.format(dtype))
             c1.data_source.data['numc'] = ss.data['numc']
             c1.glyph.y = 'numc'
             c1l.data_source.data['tnumc'] = ss.data['tnumc']
@@ -1083,8 +1026,6 @@ hmsz.change.emit();
             c3.glyph.y = 'avgcom'
             c4.data_source.data['avgfsi'] = ss.data['avgfsi']
             c4.glyph.y = 'avgfsi'
-            c5.data_source.data['avgmsi'] = ss.data['avgmsi']
-            c5.glyph.y = 'avgmsi'
 
 
 starter = display_result(case='8',timestamp='2018-07-18.12.04.04.618630',pad=0.1)
