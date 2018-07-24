@@ -69,7 +69,6 @@ class read_results(object):
         self.timestamp = timestamp
 
     def read_base_data(self,datatype=None,case=None,timestamp=None,neighbours=20):
-        self.allbad = False
         self.data = h5py.File('case{0}_{1}.hdf5'.format(self.case,self.timestamp),'r+')
         if case:
             self.case = case
@@ -107,6 +106,7 @@ class read_results(object):
             self.numms.append(labcount)
         self.numcs = np.array(self.numcs)
         self.goodinds = np.where(self.numcs > 3)
+        self.allbad = False
         if len(self.goodinds[0]) > 0:
             self.goodind = self.goodinds[0][0]
         elif len(self.goodinds[0])==0:
@@ -141,7 +141,6 @@ class read_results(object):
             effs = np.zeros(len(labmaster))
             coms = np.zeros(len(labmaster))
             fsil = -np.ones(len(labmaster))
-            msil = -np.ones(len(labmaster))
             numc = 0.01*np.ones(len(labmaster))
             alph = 0.7*np.ones(len(labmaster))
             for e,eps in enumerate(self.eps):
@@ -149,29 +148,34 @@ class read_results(object):
                     sizes = self.numms[e]
                     try:
                         self.read_run_data(eps=eps,min_sample=self.min_samples[e],update=True)
-                        vals = sizes > minmem
+                        vals = np.where(sizes >= minmem)[0]
                         if np.sum(vals) > 0:
                             match = np.where(labmaster=='{0}, {1}'.format(eps,self.min_samples[e]))
                             numc[match] = len(sizes[vals])
                             effs[match] = np.mean(self.eff[vals])
                             coms[match] = np.mean(self.com[vals])
                             fsil[match] = np.mean(self.fsil[vals])
-                            msil[match] = np.mean(self.msil[vals])
                         self.maxmem = np.max([self.maxmem,np.max(sizes)])
                     except:
                         pass
             tnumc = np.array([len(self.tsize[self.tsize>minmem])]*len(labmaster))
             tnumc[tnumc < 1] = 0.01
+            print('array lens',len(labmaster),len(numc),len(effs))
             statsource = {'params':labmaster,'numc':numc,
                                'avgeff':effs,'avgcom':coms,
-                               'avgfsi':fsil,'avgmsi':msil,
+                               'avgfsi':fsil,
                                'xvals':xvals,'alphas':alph,
                                'tnumc':tnumc}
+            print('NAN CHECK',np.sum(np.isnan(numc)),np.sum(np.isnan(effs)),np.sum(np.isnan(fsil)))
             setattr(self,'{0}_statsource'.format(dtype),ColumnDataSource(statsource))
+            if 'sourcedict' not in dir(self):
+                self.sourcedict={}
             if not update:
                 self.sourcedict['{0}source'.format(dtype)] = getattr(self,'{0}_statsource'.format(dtype))
             self.sourcedict['new{0}source'.format(dtype)] = getattr(self,'{0}_statsource'.format(dtype))
         self.dtype = vintdtype
+        #self.read_dtype_data(datatype=self.dtype)
+        #self.read_run_data(eps=self.epsval,min_sample=self.minval,update=True)
 
     def read_run_data(self,eps=None,min_sample=None,update=False):
         if eps:
@@ -190,6 +194,7 @@ class read_results(object):
         self.com = self.data['{0}_com_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
         self.fsize = self.data['{0}_found_size_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
         self.numc = len(self.fsize)
+        print('clusters',self.numc,len(self.eff))
         # Scrub nans
         self.msil[np.isnan(self.msil)] = -1
         self.fsil[np.isnan(self.fsil)] = -1
@@ -199,8 +204,11 @@ class read_results(object):
                          'Found Silhouette':self.fsil,'Matched Silhouette':self.msil,
                          'Found Size':self.fsize,'Matched Size':self.msize}
         self.source=ColumnDataSource(data=self.datadict)
+        if 'sourcedict' not in dir(self):
+            self.sourcedict={}
         if not update:
-            self.sourcedict = {'source':self.source,'newsource':self.source}
+            self.sourcedict['source'] = self.source
+        self.sourcedict['newsource'] = self.source
 
 class display_result(read_results):
 
@@ -249,14 +257,15 @@ for (key in vnew{0}) {{
         if self.allbad:
             print("Didn't find any clusters for any parameter choices with {0} this run".format(typenames[self.dtype]))
         elif not self.allbad:
-            self.read_run_data()
             self.generate_average_stats()
+            self.read_run_data()
             self.stat_plots()
             self.center_plot()
             self.histograms()
             self.buttons()
 
-            buttons = column(widgetbox(self.minsize,width=200,height=30),
+            buttons = column(self.s5,
+                             widgetbox(self.minsize,width=200,height=30),
                              widgetbox(self.selectcase,width=200,height=30),
                              widgetbox(self.selecttime,width=200,height=30),
                              widgetbox(self.selectdtype,width=200,height=30),
@@ -341,12 +350,11 @@ for (key in vnew{0}) {{
                          output_backend='svg',toolbar_location=None,
                          y_range=(-0.03,1.03),y_axis_label='Efficiency')
         self.s2.background_fill_color = self.bcolor
-        items = []
+        
         for d,dtype in enumerate(self.alldtypes):
             dtype = nametypes[dtype]
             c2 = self.s2.scatter(x='xvals',y='avgeff',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.colorlist[d],size=5,alpha=0.6)
             setattr(self,'{0}_c2'.format(dtype),c2)
-            items.append((typenames[dtype],[getattr(self,'{0}_c2'.format(dtype))]))
         self.label_stat_xaxis(self.s2,dtype=self.dtype)
 
         self.s3 = figure(plot_width=300,plot_height=250,min_border=10,
@@ -374,9 +382,23 @@ for (key in vnew{0}) {{
             setattr(self,'{0}_c4'.format(dtype),c4)
         self.label_stat_xaxis(self.s4,dtype=self.dtype)
 
+        items = []
+        
+        self.s5 = figure(plot_width=200,plot_height=200,
+                         x_axis_location=None,y_axis_location=None,
+                         toolbar_location=None,x_range=(0,1),y_range=(0,1))
+        self.s5.background_fill_color = None
+        self.s5.xgrid.visible = False
+        self.s5.ygrid.visible = False
+        self.s5.outline_line_color = None
+        for d,dtype in enumerate(self.alldtypes):
+            dtype = nametypes[dtype]
+            c5 = self.s5.scatter(x=[0.5],y=[0.5],color=self.colorlist[d],size=5,alpha=0.6)
+            items.append((typenames[dtype],[c5]))
         legend = Legend(items=items, location=(0,30))
 
-        self.s2.add_layout(legend, 'right')
+        self.s5.add_layout(legend, 'center')
+        self.s5.legend.background_fill_alpha = 1
 
 
     def label_stat_xaxis(self,plot,dtype='sepc'):
@@ -597,6 +619,7 @@ for (key in vnew{0}) {{
         self.make_hist('Matched Silhouette',bins=np.linspace(-1,1,nbins),
                   x_range=(-1,1),yscale='log',background=self.tsil,
                   update=update)
+        print(len(self.tsize),len(self.source.data['Found Size']),len(self.source.data['Found Size']))
         self.maxsize = np.max(np.array([np.max(self.source.data['Found Size']),
                                         np.max(self.source.data['Matched Size']),
                                         np.max(self.tsize)]))
@@ -835,7 +858,6 @@ for (key in vnew{0}) {{
         self.loadbutton.label = 'Loading'
         dtype = nametypes[new]
         self.read_base_data(datatype=dtype)
-        self.generate_average_stats(minmem=int(self.minsize.value),update=True)
         if self.allbad:
             print("Didn't find any clusters for any parameter choices with {0} this run".format(typenames[self.dtype]))
             self.loadbutton.button_type='danger'
@@ -879,13 +901,15 @@ for (key in vnew{0}) {{
         self.timestamp = new
         dtype = nametypes[self.selectdtype.value]
         self.read_base_data(case=self.case,timestamp=self.timestamp,datatype=dtype)
-        self.generate_average_stats(minmem=int(self.minsize.value),update=True)
         self.selectdtype.options = self.alldtypes
         if self.allbad:
             print("Didn't find any clusters for any parameter choices with {0} this run".format(typenames[self.dtype]))
             self.loadbutton.button_type='danger'
             self.loadbutton.label = 'No new data to load'
         elif not self.allbad:
+            print('allbad',self.allbad)
+            self.generate_average_stats(minmem=int(self.minsize.value),update=True)
+            print('allbad',self.allbad)
             self.selectparam.options = self.paramlist
             self.selectparam.value = self.paramchoices[self.goodind]
             eps,min_sample = [i.split('=')[-1] for i in self.selectparam.value.split(', ')]
@@ -1039,5 +1063,5 @@ for (key in vnew{0}) {{
             c4.glyph.y = 'avgfsi'
 
 
-starter = display_result(case='8',timestamp='2018-07-18.12.04.04.618630',pad=0.1)
+starter = display_result(case='7',timestamp='2018-07-24.17.46.55.953480',pad=0.1)
 
