@@ -166,13 +166,11 @@ class read_results(object):
                         pass
             tnumc = np.array([len(self.tsize[self.tsize>minmem])]*len(labmaster))
             tnumc[tnumc < 1] = 0.01
-            print('array lens',len(labmaster),len(numc),len(effs))
             statsource = {'params':labmaster,'numc':numc,
                                'avgeff':effs,'avgcom':coms,
                                'avgfsi':fsil,
                                'xvals':xvals,'alphas':alph,
                                'tnumc':tnumc}
-            print('NAN CHECK',np.sum(np.isnan(numc)),np.sum(np.isnan(effs)),np.sum(np.isnan(fsil)))
             setattr(self,'{0}_statsource'.format(dtype),ColumnDataSource(statsource))
             if 'sourcedict' not in dir(self):
                 self.sourcedict={}
@@ -338,7 +336,7 @@ for (key in vnew{0}) {{
         self.s1 = figure(plot_width=300,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='log',
-                         output_backend='svg',toolbar_location=None,
+                         toolbar_location=None,
                          y_axis_label='Number Found')
         self.s1.y_range.start = 1
         self.s1.background_fill_color = self.bcolor
@@ -353,7 +351,7 @@ for (key in vnew{0}) {{
         self.s2 = figure(plot_width=300,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='linear',
-                         output_backend='svg',toolbar_location=None,
+                         toolbar_location=None,
                          y_range=(-0.03,1.03),y_axis_label='Efficiency')
         self.s2.background_fill_color = self.bcolor
         
@@ -366,7 +364,7 @@ for (key in vnew{0}) {{
         self.s3 = figure(plot_width=300,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='linear',
-                         output_backend='svg',toolbar_location=None,
+                         toolbar_location=None,
                          y_range=(-0.03,1.03),y_axis_label='Completeness')
         self.s3.background_fill_color = self.bcolor
         for d,dtype in enumerate(self.alldtypes):
@@ -378,7 +376,7 @@ for (key in vnew{0}) {{
         self.s4 = figure(plot_width=300,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='linear',
-                         output_backend='svg',toolbar_location=None,
+                         toolbar_location=None,
                          y_range=(-1.06,1.06),y_axis_label='Found Silhouette')
         self.s4.background_fill_color = self.bcolor
         
@@ -440,8 +438,7 @@ for (key in vnew{0}) {{
                          x_axis_location='below', y_axis_location='left',
                          x_axis_label=xlabel,y_axis_label=ylabel,
                          x_axis_type='linear',y_axis_type='linear',
-                         x_range=(xmin,xmax),y_range=(ymin,ymax),
-                         output_backend="svg")
+                         x_range=(xmin,xmax),y_range=(ymin,ymax))
         self.p1.background_fill_color = self.bcolor
         self.p1.select(BoxSelectTool).select_every_mousemove = False
         self.p1.select(LassoSelectTool).select_every_mousemove = False
@@ -467,8 +464,7 @@ for (key in vnew{0}) {{
                          x_axis_location='below', y_axis_location='left',
                          x_axis_label=xlabel,y_axis_label=ylabel,
                          x_axis_type='log',y_axis_type='linear',
-                         x_range=(slxmin,xmax),y_range=(ymin,ymax),
-                         output_backend="svg")
+                         x_range=(slxmin,xmax),y_range=(ymin,ymax))
         self.p2.background_fill_color = self.bcolor
         self.p2.select(BoxSelectTool).select_every_mousemove = False
         self.p2.select(LassoSelectTool).select_every_mousemove = False
@@ -498,8 +494,7 @@ for (key in vnew{0}) {{
                          x_axis_location='below', y_axis_location='left', 
                          x_axis_label=xlabel, y_axis_label=ylabel, 
                          x_axis_type='linear', y_axis_type='log', 
-                         x_range=(xmin,xmax), y_range=(slymin,ymax),
-                         output_backend="svg")
+                         x_range=(xmin,xmax), y_range=(slymin,ymax))
         self.p3.background_fill_color = self.bcolor
         self.p3.select(BoxSelectTool).select_every_mousemove = False
         self.p3.select(LassoSelectTool).select_every_mousemove = False
@@ -525,8 +520,7 @@ for (key in vnew{0}) {{
                          x_axis_location='below', y_axis_location='left', 
                          x_axis_label=xlabel, y_axis_label=ylabel, 
                          x_axis_type='log', y_axis_type='log', 
-                         x_range=(slxmin,xmax), y_range=(slymin,ymax),
-                         output_backend="svg")
+                         x_range=(slxmin,xmax), y_range=(slymin,ymax))
         self.p4.background_fill_color = self.bcolor
         self.p4.select(BoxSelectTool).select_every_mousemove = False
         self.p4.select(LassoSelectTool).select_every_mousemove = False
@@ -593,7 +587,7 @@ for (key in vnew{0}) {{
                         x_range=x_range,y_range=(ymin, hist_max), min_border=10, 
                         min_border_left=50, y_axis_location="right",
                         x_axis_label=key,x_axis_type=xscale,
-                        y_axis_type=yscale,output_backend="svg")
+                        y_axis_type=yscale)
             setattr(self,'p_{0}'.format(hist_name),p)
             p.xgrid.grid_line_color = None
             #pt.yaxis.major_label_orientation = np.pi/4
@@ -625,7 +619,6 @@ for (key in vnew{0}) {{
         self.make_hist('Matched Silhouette',bins=np.linspace(-1,1,nbins),
                   x_range=(-1,1),yscale='log',background=self.tsil,
                   update=update)
-        print(len(self.tsize),len(self.source.data['Found Size']),len(self.source.data['Found Size']))
         try:
             self.maxsize = np.max(np.array([np.max(self.source.data['Found Size']),
                                             np.max(self.source.data['Matched Size']),
@@ -693,9 +686,6 @@ for (key in vnew{0}) {{
         self.loadbutton = Button(label='Select new run info above', button_type='success')
         self.JScallback()
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
-
-        self.saveplots = Button(label='Save plots',button_type='primary')
-        self.saveplots.on_click(self.exportplots)
         
         code = '''\
         object1.visible = toggle.active
@@ -916,9 +906,7 @@ for (key in vnew{0}) {{
             self.loadbutton.button_type='danger'
             self.loadbutton.label = 'No new data to load'
         elif not self.allbad:
-            print('allbad',self.allbad)
             self.generate_average_stats(minmem=int(self.minsize.value),update=True)
-            print('allbad',self.allbad)
             self.selectparam.options = self.paramlist
             self.selectparam.value = self.paramchoices[self.goodind]
             eps,min_sample = [i.split('=')[-1] for i in self.selectparam.value.split(', ')]
@@ -934,120 +922,6 @@ for (key in vnew{0}) {{
             self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
             self.loadbutton.button_type='success'
             self.loadbutton.label = 'Click to load new data'
-
-    def exportplots(self):
-        self.saveplots.button_type='danger'
-        self.saveplots.label = 'Saving plots'
-        if 'histkeys' not in dir(self):
-            histkeys = self.datadict.keys()
-            self.histkeys = np.array([key.lower().replace(' ','_') for key in histkeys])
-        xkey = self.histkeys[self.xradio.active]
-        ykey = self.histkeys[self.yradio.active]
-        self.exportscatter(xkey,ykey)
-
-        pth = '{0}/hist_efficiency'.format(resultpath)
-        if not os.path.exists(pth):
-            os.system('mkdir -p {0}'.format(pth))
-        fname = '{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp)
-        if not os.path.exists(fname):
-            export_svgs(self.p_efficiency,filename=fname)
-            if inkscape:
-                os.system('{0} --without-gui {1} --export-pdf={2}'.format(inkscape,fname,fname.replace('.svg','.pdf')))
-                os.system('rm {0}'.format(fname))
-
-        pth = '{0}/hist_completeness'.format(resultpath)
-        if not os.path.exists(pth):
-            os.system('mkdir -p {0}'.format(pth))
-        fname = '{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp)
-        if not os.path.exists(fname):
-            export_svgs(self.p_completeness,filename=fname)
-            if inkscape:
-                os.system('{0} --without-gui {1} --export-pdf={2}'.format(inkscape,fname,fname.replace('.svg','.pdf')))
-                os.system('rm {0}'.format(fname))
-
-        pth = '{0}/hist_found_silhouette'.format(resultpath)
-        if not os.path.exists(pth):
-            os.system('mkdir -p {0}'.format(pth))
-        fname = '{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp)
-        if not os.path.exists(fname):
-            export_svgs(self.p_found_silhouette,filename=fname)
-            if inkscape:
-                os.system('{0} --without-gui {1} --export-pdf={2}'.format(inkscape,fname,fname.replace('.svg','.pdf')))
-                os.system('rm {0}'.format(fname))
-
-        pth = '{0}/hist_matched_silhouette'.format(resultpath)
-        if not os.path.exists(pth):
-            os.system('mkdir -p {0}'.format(pth))
-        fname = '{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp)
-        if not os.path.exists(fname):
-            export_svgs(self.p_matched_silhouette,filename=fname)
-            if inkscape:
-                os.system('{0} --without-gui {1} --export-pdf={2}'.format(inkscape,fname,fname.replace('.svg','.pdf')))
-                os.system('rm {0}'.format(fname))
-
-        pth = '{0}/hist_found_size'.format(resultpath)
-        if not os.path.exists(pth):
-            os.system('mkdir -p {0}'.format(pth))
-        fname = '{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp)
-        if not os.path.exists(fname):
-            export_svgs(self.p_found_size,filename=fname)
-            if inkscape:
-                os.system('{0} --without-gui {1} --export-pdf={2}'.format(inkscape,fname,fname.replace('.svg','.pdf')))
-                os.system('rm {0}'.format(fname))
-
-        pth = '{0}/hist_matched_size'.format(resultpath)
-        if not os.path.exists(pth):
-            os.system('mkdir -p {0}'.format(pth))
-        fname = '{0}/case{1}_eps{2}_min{3}_{4}.svg'.format(pth,self.case,self.epsval,self.minval,self.timestamp)
-        if not os.path.exists(fname):
-            export_svgs(self.p_matched_size,filename=fname)
-            if inkscape:
-                os.system('{0} --without-gui {1} --export-pdf={2}'.format(inkscape,fname,fname.replace('.svg','.pdf')))
-                os.system('rm {0}'.format(fname))
-
-        self.saveplots.button_type='primary'
-        self.saveplots.label = 'Save plots'
-
-    def exportscatter(self,xkey,ykey):
-        pth = '{0}/scatter_linear'.format(resultpath)
-        if not os.path.exists(pth):
-            os.system('mkdir -p {0}'.format(pth))
-        fname = '{0}/{1}_vs_{2}_case{3}_eps{4}_min{5}_{6}.svg'.format(pth,xkey,ykey,self.epsval,self.minval,self.case,self.timestamp)
-        if not os.path.exists(fname):
-            export_svgs(self.p1,filename=fname)
-            if inkscape:
-                os.system('{0} --without-gui {1} --export-pdf={2}'.format(inkscape,fname,fname.replace('.svg','.pdf')))
-                os.system('rm {0}'.format(fname))
-
-        pth = '{0}/scatter_semilogx'.format(resultpath)
-        if not os.path.exists(pth):
-            os.system('mkdir -p {0}'.format(pth))
-        fname = '{0}/{1}_vs_{2}_case{3}_eps{4}_min{5}_{6}.svg'.format(pth,xkey,ykey,self.epsval,self.minval,self.case,self.timestamp)
-        if not os.path.exists(fname):
-            export_svgs(self.p2,filename=fname)
-            if inkscape:
-                os.system('{0} --without-gui {1} --export-pdf={2}'.format(inkscape,fname,fname.replace('.svg','.pdf')))
-                os.system('rm {0}'.format(fname))
-
-        pth = '{0}/scatter_semilogy'.format(resultpath)
-        if not os.path.exists(pth):
-            os.system('mkdir -p {0}'.format(pth))
-        fname = '{0}/{1}_vs_{2}_case{3}_eps{4}_min{5}_{6}.svg'.format(pth,xkey,ykey,self.epsval,self.minval,self.case,self.timestamp)
-        if not os.path.exists(fname):
-            export_svgs(self.p3,filename=fname)
-            if inkscape:
-                os.system('{0} --without-gui {1} --export-pdf={2}'.format(inkscape,fname,fname.replace('.svg','.pdf')))
-                os.system('rm {0}'.format(fname))
-
-        pth = '{0}/scatter_loglog'.format(resultpath)
-        if not os.path.exists(pth):
-            os.system('mkdir -p {0}'.format(pth)) 
-        fname = '{0}/{1}_vs_{2}_case{3}_eps{4}_min{5}_{6}.svg'.format(pth,xkey,ykey,self.epsval,self.minval,self.case,self.timestamp)
-        if not os.path.exists(fname):
-            export_svgs(self.p4,filename=fname)
-            if inkscape:
-                os.system('{0} --without-gui {1} --export-pdf={2}'.format(inkscape,fname,fname.replace('.svg','.pdf')))
-                os.system('rm {0}'.format(fname))
 
     def updatestatplot(self, attr, old, new):
         num = int(new)
