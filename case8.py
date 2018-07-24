@@ -31,10 +31,20 @@ aeps = np.repeat(aeps,asamples)
 seps = np.repeat(seps,ssamples)
 
 case8 = caserun(nstars=nstars,sample=sample,abundancefac=abundancefac,
-                 spreadchoice=spreadchoice,specfac=specfac,
+                 spreadchoice=spreadchoice,specfac=specfac,centerfac=centerfac,
+                 centerspr=spreads,genfn=choosestruct,
                  fullfitkeys=fullfitkeys,fullfitatms=fullfitatms,
                  crossfitkeys=crossfitkeys,crossfitatms=crossfitatms,
-                 seps=seps,smin_samples=smin_samples,
-                 aeps=aeps,amin_samples=amin_samples,
-                 metric='precomputed',neighbours = 20,phvary=True,
-                 fitspec=True,case='8',centerfac=centerfac,normeps=True)
+                 phvary=True,fitspec=True,case='8')
+start = time.time()
+case8.clustering(case8.specinfo.spectra,'spec',eps,min_samples,metric='precomputed',
+                neighbours = 20,normeps=normeps)
+case8.clustering(case8.abundances,'abun',eps,min_samples,metric='precomputed',
+                neighbours = 20,normeps=normeps)
+toph = combine_windows(windows = tophats,combelem=elem)
+case8.projspec(toph)
+case8.clustering(case8.projectspec,'toph',eps,min_samples,metric='precomputed',
+                neighbours = 20,normeps=normeps)
+end = time.time()
+case8.finish()
+print('Finished desired clustering in {0} seconds'.format(end-start))
