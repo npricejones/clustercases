@@ -47,10 +47,16 @@ plot_eps = 0.5
 padfac = 0.1
 
 def findextremes(x,y,pad=0.1):
-    xmin = np.min(x)
-    xmax = np.max(x)
-    ymin = np.min(y)
-    ymax = np.max(y)
+    try:
+        xmin = np.min(x)
+        xmax = np.max(x)
+        ymin = np.min(y)
+        ymax = np.max(y)
+    except ValueError:
+        xmin = 0.5
+        xmax = 1
+        ymin = 0.5
+        ymax = 1
     xmin -= padfac*pad*xmax
     xmax += pad*xmax
     ymin -= padfac*pad*ymax
@@ -620,10 +626,13 @@ for (key in vnew{0}) {{
                   x_range=(-1,1),yscale='log',background=self.tsil,
                   update=update)
         print(len(self.tsize),len(self.source.data['Found Size']),len(self.source.data['Found Size']))
-        self.maxsize = np.max(np.array([np.max(self.source.data['Found Size']),
-                                        np.max(self.source.data['Matched Size']),
-                                        np.max(self.tsize)]))
-        self.maxsize = np.log10(self.maxsize)
+        try:
+            self.maxsize = np.max(np.array([np.max(self.source.data['Found Size']),
+                                            np.max(self.source.data['Matched Size']),
+                                            np.max(self.tsize)]))
+            self.maxsize = np.log10(self.maxsize)
+        except ValueError:
+            self.maxsize=10
         self.make_hist('Found Size',bins=np.logspace(0,self.maxsize,nbins),
                   xscale='log',yscale='log',background=self.tsize,
                   update=update)
