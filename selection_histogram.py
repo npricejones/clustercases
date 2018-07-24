@@ -316,7 +316,7 @@ for (key in vnew{0}) {{
                 self.histcolor,self.maincolor]
 
     def stat_plots(self):
-        self.s1 = figure(plot_width=350,plot_height=350,min_border=10,
+        self.s1 = figure(plot_width=250,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='log',
                          output_backend='svg',toolbar_location=None,
@@ -331,7 +331,7 @@ for (key in vnew{0}) {{
             setattr(self,'{0}_c1l'.format(dtype),c1l)
         self.label_stat_xaxis(self.s1,dtype=self.dtype)
 
-        self.s2 = figure(plot_width=350,plot_height=350,min_border=10,
+        self.s2 = figure(plot_width=250,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='linear',
                          output_backend='svg',toolbar_location=None,
@@ -343,7 +343,7 @@ for (key in vnew{0}) {{
             setattr(self,'{0}_c2'.format(dtype),c2)
         self.label_stat_xaxis(self.s2,dtype=self.dtype)
 
-        self.s3 = figure(plot_width=350,plot_height=350,min_border=10,
+        self.s3 = figure(plot_width=250,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='linear',
                          output_backend='svg',toolbar_location=None,
@@ -355,7 +355,7 @@ for (key in vnew{0}) {{
             setattr(self,'{0}_c3'.format(dtype),c3)
         self.label_stat_xaxis(self.s3,dtype=self.dtype)
 
-        self.s4 = figure(plot_width=350,plot_height=350,min_border=10,
+        self.s4 = figure(plot_width=250,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='linear',
                          output_backend='svg',toolbar_location=None,
