@@ -230,7 +230,6 @@ class read_results(object):
             dtype = nametypes[dtype]
             # Read in relevant data
             self.read_dtype_data(datatype=dtype)
-            print('goodinds',self.goodinds)
 
             # Initialize arrays
             effs = np.zeros(len(labmaster))
@@ -240,22 +239,21 @@ class read_results(object):
 
             # cycle through epsilon values for this run
             for e,eps in enumerate(self.eps):
-                if e in self.goodinds[0]:
-                    sizes = self.numms[e]
-                    try:
-                        self.read_run_data(eps=eps,min_sample=self.min_samples[e],update=True)
+                sizes = self.numms[e]
+                try:
+                    self.read_run_data(eps=eps,min_sample=self.min_samples[e],update=True)
+                    if self.numc > 3:
                         vals = sizes >= minmem
                         if np.sum(vals) > 0:
                             vals = np.where(vals)
                             match = np.where(labmaster=='{0}, {1}'.format(eps,self.min_samples[e]))
-                            print(match,sizes[vals])
                             numc[match] = len(sizes[vals])
                             effs[match] = np.mean(self.eff[vals])
                             coms[match] = np.mean(self.com[vals])
                             fsil[match] = np.mean(self.fsil[vals])
                         self.maxmem = np.max([self.maxmem,np.max(numc)])
-                    except KeyError:
-                        pass
+                except KeyError:
+                    pass
             tnumc = np.array([len(self.tsize[self.tsize>minmem])]*len(labmaster))
             self.maxmem = np.max([self.maxmem,tnumc[0]])
             tnumc[tnumc < 1] = 0.01
@@ -291,7 +289,6 @@ class read_results(object):
         self.com = self.data['{0}_com_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
         self.fsize = self.data['{0}_found_size_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
         self.numc = len(self.fsize)
-        print('clusters',self.numc,len(self.eff))
         # Scrub nans
         self.msil[np.isnan(self.msil)] = -1
         self.fsil[np.isnan(self.fsil)] = -1
