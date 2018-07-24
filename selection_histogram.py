@@ -14,7 +14,7 @@ import warnings
 from clustering_stats import *
 
 from bokeh.layouts import row, column, widgetbox
-from bokeh.models import BoxSelectTool, LassoSelectTool, Spacer,CustomJS
+from bokeh.models import BoxSelectTool, LassoSelectTool, Spacer,CustomJS, Legend
 from bokeh.models.glyphs import Circle
 from bokeh.models.widgets import Toggle,RadioButtonGroup,AutocompleteInput,Tabs, Panel, Select, Button, TextInput
 from bokeh.plotting import figure, curdoc, ColumnDataSource, reset_output
@@ -256,8 +256,7 @@ for (key in vnew{0}) {{
             self.histograms()
             self.buttons()
 
-            buttons = column(widgetbox(self.minsize,width=200,height=30), 
-                             widgetbox(self.toggleline,width=200,height=30),
+            buttons = column(widgetbox(self.minsize,width=200,height=30),
                              widgetbox(self.selectcase,width=200,height=30),
                              widgetbox(self.selecttime,width=200,height=30),
                              widgetbox(self.selectdtype,width=200,height=30),
@@ -269,9 +268,14 @@ for (key in vnew{0}) {{
                                   self.s3))
             topplots = row(buttons,avgplots)
 
-            mainplot = row(Tabs(tabs=self.panels),
-                           column(widgetbox(self.xradio,width=440),
-                                  widgetbox(self.yradio,width=440),
+            mainplot = row(column(Tabs(tabs=self.panels,width=self.sqside+20)),
+                           column(Spacer(width=440,height=50),
+                                  row(Spacer(width=50,height=30),
+                                      widgetbox(self.toggleline,width=300)),
+                                  row(Spacer(width=50,height=100),
+                                      widgetbox(self.xradio,width=440)),
+                                  row(Spacer(width=50,height=100),
+                                      widgetbox(self.yradio,width=440)),
                                   row(self.p_found_size,
                                       self.p_matched_size)))
 
@@ -316,7 +320,7 @@ for (key in vnew{0}) {{
                 self.histcolor,self.maincolor]
 
     def stat_plots(self):
-        self.s1 = figure(plot_width=250,plot_height=250,min_border=10,
+        self.s1 = figure(plot_width=300,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='log',
                          output_backend='svg',toolbar_location=None,
@@ -331,19 +335,21 @@ for (key in vnew{0}) {{
             setattr(self,'{0}_c1l'.format(dtype),c1l)
         self.label_stat_xaxis(self.s1,dtype=self.dtype)
 
-        self.s2 = figure(plot_width=250,plot_height=250,min_border=10,
+        self.s2 = figure(plot_width=300,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='linear',
                          output_backend='svg',toolbar_location=None,
                          y_range=(-0.03,1.03),y_axis_label='Efficiency')
         self.s2.background_fill_color = self.bcolor
+        items = []
         for d,dtype in enumerate(self.alldtypes):
             dtype = nametypes[dtype]
             c2 = self.s2.scatter(x='xvals',y='avgeff',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.colorlist[d],size=5,alpha=0.6)
             setattr(self,'{0}_c2'.format(dtype),c2)
+            items.append((typenames[dtype],[getattr(self,'{0}_c2'.format(dtype))]))
         self.label_stat_xaxis(self.s2,dtype=self.dtype)
 
-        self.s3 = figure(plot_width=250,plot_height=250,min_border=10,
+        self.s3 = figure(plot_width=300,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='linear',
                          output_backend='svg',toolbar_location=None,
@@ -355,17 +361,22 @@ for (key in vnew{0}) {{
             setattr(self,'{0}_c3'.format(dtype),c3)
         self.label_stat_xaxis(self.s3,dtype=self.dtype)
 
-        self.s4 = figure(plot_width=250,plot_height=250,min_border=10,
+        self.s4 = figure(plot_width=300,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='linear',
                          output_backend='svg',toolbar_location=None,
                          y_range=(-1.06,1.06),y_axis_label='Found Silhouette')
         self.s4.background_fill_color = self.bcolor
+        
         for d,dtype in enumerate(self.alldtypes):
             dtype = nametypes[dtype]
             c4 = self.s4.scatter(x='xvals',y='avgfsi',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.colorlist[d],size=5,alpha=0.6)
             setattr(self,'{0}_c4'.format(dtype),c4)
         self.label_stat_xaxis(self.s4,dtype=self.dtype)
+
+        legend = Legend(items=items, location=(0,30))
+
+        self.s2.add_layout(legend, 'right')
 
 
     def label_stat_xaxis(self,plot,dtype='sepc'):
