@@ -352,7 +352,6 @@ class caserun(object):
             if len(bad[0])>0:
                 plabs = np.delete(plabs,bad[0][0])
                 pcount = np.delete(pcount,bad[0][0])
-            print(eps[i],min_samples[i],len(pcount))
             efficiency, completeness, plabs, matchtlabs = efficiency_completeness(db.labels_,self.labels_true,minmembers=1)
             if len(plabs) > 5:
                 k = neighbours

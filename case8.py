@@ -15,20 +15,15 @@ crossfitatms = [6,7,8,11,12,13,14,16,19,20,22,23,25,26,28] # atomic numbers of c
 spreadchoice = spreads # choose which abudance spreads to employ
 
 # DBSCAN parameters                                                             
-smin_samples = np.array([2,3])
-ssamples = len(smin_samples)
+min_samples = np.array([2,3])
+samples = len(min_samples)
 lg = np.arange(-3,1)
 eps = [i*10.**lg for i in [1,5]]
 eps = np.concatenate((eps[0],eps[1]))
 eps.sort()
-seps = eps
-smin_samples = np.tile(smin_samples,len(seps))
-amin_samples = np.array([2,3])
-asamples = len(amin_samples)
-aeps = eps
-amin_samples = np.tile(amin_samples,len(aeps))
-aeps = np.repeat(aeps,asamples)
-seps = np.repeat(seps,ssamples)
+eps = np.array([0.07,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0])
+min_samples = np.tile(min_samples,len(eps))
+eps = np.repeat(eps,samples)
 
 case8 = caserun(nstars=nstars,sample=sample,abundancefac=abundancefac,
                  spreadchoice=spreadchoice,specfac=specfac,centerfac=centerfac,

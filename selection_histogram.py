@@ -946,5 +946,5 @@ for (key in vnew{0}) {{
             c4.glyph.y = 'avgfsi'
 
 
-starter = display_result(case='7',timestamp='2018-07-24.17.46.55.953480',pad=0.1)
+starter = display_result(case='8',timestamp='2018-07-24.19.34.07.531753',pad=0.1)
 
