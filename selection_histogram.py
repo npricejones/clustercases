@@ -32,10 +32,6 @@ cwd = os.getcwd()
 
 resultpath = os.getenv('CLUSTERCASES', cwd)
 
-inkscape = os.getenv('INKSCAPE',False)
-if not inkscape:
-    warnings.warn('Need Inkscape to convert saved svg to pdf')
-
 # Types of data that clustering was run on
 
 typenames = {'spec':'spectra','abun':'abundances','toph':'tophat windows','wind':'windows'}
@@ -47,6 +43,16 @@ plot_eps = 0.5
 padfac = 0.1
 
 def findextremes(x,y,pad=0.1):
+    """
+    Try to find the limits of the dataset. If you can't because it's empty, 
+    choose arbitrary values.
+
+    x:      an array of data
+    y:      another array of data
+    pad:    fraction with which to pad extremes
+
+    Returns the limits of each axis and ultimate extremes.
+    """
     try:
         xmin = np.min(x)
         xmax = np.max(x)
@@ -57,6 +63,7 @@ def findextremes(x,y,pad=0.1):
         xmax = 1
         ymin = 0.5
         ymax = 1
+    # Add padding
     xmin -= padfac*pad*xmax
     xmax += pad*xmax
     ymin -= padfac*pad*ymax
@@ -67,19 +74,45 @@ def findextremes(x,y,pad=0.1):
 
 class read_results(object):
 
-    def __init__(self,ind = 0, datatype = 'spec', case = 7, 
+    """
+    Functions to gather data from an hdf5 file.
+
+    """
+
+    def __init__(self, datatype = 'spec', case = 7, 
                  timestamp = '2018-07-06.14.28.11.782906'):
-        self.ind = ind
+        """
+        datatype:       type of data to gather (spec, abun, toph or wind)
+        case:           case number of file
+        timestamp:      timestamp of file
+
+        returns None
+        """
         self.dtype = datatype
         self.case = case
         self.timestamp = timestamp
 
-    def read_base_data(self,datatype=None,case=None,timestamp=None,neighbours=20):
-        self.data = h5py.File('case{0}_{1}.hdf5'.format(self.case,self.timestamp),'r+')
+    def read_base_data(self,datatype=None,case=None,timestamp=None,
+                       neighbours=20):
+        """
+        Set global parameters and opens case file.
+
+        datatype:       type of data to gather (spec, abun, toph or wind)
+        case:           case number of file - default is from init
+        timestamp:      timestamp of file - default is from init
+        neighbours:     number of neighbours used in silhouette calculation
+        """
+        # open the h5py file
+        self.data = h5py.File('case{0}_{1}.hdf5'.format(self.case,
+                                                        self.timestamp),'r+')
+        # set the upper limit when plotting the number of clusters
+        self.maxmem = 1
+        # aquire defaults
         if case:
             self.case = case
         if timestamp:
             self.timestamp = timestamp
+        # generate list of all allowed data types
         alldtypes = np.unique(np.array([i.split('_')[0] for i in list(self.data.keys())]))
         special = np.where((alldtypes=='true') | (alldtypes=='labels'))
         if len(special[0])>0:
@@ -87,40 +120,75 @@ class read_results(object):
         self.alldtypes = []
         for dtype in alldtypes:
             self.alldtypes.append(typenames[dtype])
-        #self.chemspace = self.data['{0}'.format(self.dtype)][:]
-        #self.labels_true = self.data['labels_true'][:]
+
+        # read in the true cluster sizes for this file
         self.tsize = self.data['true_size'][:]
+
+        # read in datatype specific data
         self.read_dtype_data(datatype=dtype)
         
-    def read_dtype_data(self,datatype='spec'):
+    def read_dtype_data(self,datatype=None):
+        """
+        Reads in datatype specifc data
+
+        datatype:       type of data to gather - default is from init
+        """
         if datatype:
             self.dtype = datatype
-        self.tsil = self.data['{0}_true_sil_neigh{1}'.format(self.dtype,neighbours)][:]
-        # scrub nans
+
+        # read in silhouette coefficients of true clusters
+        self.tsil = self.data['{0}_true_sil_neigh{1}'.format(self.dtype,
+                                                             neighbours)][:]
+        # scrub nans from silhouette coefficients
         self.tsil[np.isnan(self.tsil)]=-1
+
+        # read in predicted cluster labels across all parameter choices
         self.labels_pred = self.data['{0}_labels_pred'.format(self.dtype)][:]
+
+        # create arrays to store cluster properties
         self.numcs = []
         self.numms = []
+
+        # track 'good index', the index where there are clusters so statistics
+        # can be plotted
         self.goodind = 0
+
+        # cycle through all parameter choices
         for row in range(self.labels_pred.shape[0]):
+            # count the number of clusters and their members
             labcount,labs = membercount(self.labels_pred[row])
+            # excise outlier cluster
             bad = np.where(labs==-1)
             if len(bad[0])>0:
                 labs = np.delete(labs,bad[0][0])
                 labcount = np.delete(labcount,bad[0][0])
+
+            # store attributes
             self.numcs.append(len(labs))
             self.numms.append(labcount)
+
         self.numcs = np.array(self.numcs)
+        # only plot if there's enough points (3 established by trial and error)
         self.goodinds = np.where(self.numcs > 3)
+        
+        # check whether any of the parameter choices have enough clusters 
+        # to plot are store result in allbad parameter
         self.allbad = False
         if len(self.goodinds[0]) > 0:
             self.goodind = self.goodinds[0][0]
         elif len(self.goodinds[0])==0:
             self.allbad = True
+
+        # read in properties of the runs
         self.min_samples = self.data.attrs['{0}_min'.format(self.dtype)][:]
         self.eps = self.data.attrs['{0}_eps'.format(self.dtype)][:]
+
+        # choose the run of interest, and globally note its parameters
         self.epsval = self.eps[self.goodind]
         self.minval = self.min_samples[self.goodind]
+
+        # create string lists of the parameters for summary plot labels and
+        # the drop down menu for parameter selection
         self.paramchoices = []
         self.ticklabels = []
         for i in range(len(self.eps)):
@@ -129,47 +197,70 @@ class read_results(object):
         self.paramlist = list(np.array(self.paramchoices)[self.goodinds])
 
     def generate_average_stats(self,minmem=1,update=False):
+        """
+        Find average properties across all data types in a run
+
+        minmem:     minimum number of members a cluster needs to be included 
+                    in the statistics
+        update:     if true, do not reassign source dictionary
+
+        returns None
+        """
+
+        # Track what datatype we were using to start
         vintdtype = copy.deepcopy(self.dtype)
-        self.maxmem = 1
+
+        # Create a master list of labels in case different datatypes 
+        # had different parameters 
         labmaster = []
 
+        # create and flatten label list
         for d,dtype in enumerate(self.alldtypes):
             dtype = nametypes[dtype]
             self.read_dtype_data(datatype=dtype)
             labmaster.append(self.ticklabels)
 
         labmaster = np.unique(np.array([item for sublist in labmaster for item in sublist]))
+        
+        # create list of xvalues to find where ticks should be plotted
         xvals = np.arange(len(labmaster))
 
+        # for each data type, create array to hold result of the runs
         for d,dtype in enumerate(self.alldtypes):
             dtype = nametypes[dtype]
+            # Read in relevant data
             self.read_dtype_data(datatype=dtype)
+
+            # Initialize arrays
             effs = np.zeros(len(labmaster))
             coms = np.zeros(len(labmaster))
             fsil = -np.ones(len(labmaster))
             numc = 0.01*np.ones(len(labmaster))
-            alph = 0.7*np.ones(len(labmaster))
+
+            # cycle through epsilon values for this run
             for e,eps in enumerate(self.eps):
-                if e in self.goodinds[0]:
-                    sizes = self.numms[e]
-                    try:
-                        self.read_run_data(eps=eps,min_sample=self.min_samples[e],update=True)
-                        vals = np.where(sizes >= minmem)[0]
+                sizes = self.numms[e]
+                try:
+                    self.read_run_data(eps=eps,min_sample=self.min_samples[e],update=True)
+                    if self.numc > 3:
+                        vals = sizes >= minmem
                         if np.sum(vals) > 0:
+                            vals = np.where(vals)
                             match = np.where(labmaster=='{0}, {1}'.format(eps,self.min_samples[e]))
                             numc[match] = len(sizes[vals])
                             effs[match] = np.mean(self.eff[vals])
                             coms[match] = np.mean(self.com[vals])
                             fsil[match] = np.mean(self.fsil[vals])
-                        self.maxmem = np.max([self.maxmem,np.max(sizes)])
-                    except:
-                        pass
+                        self.maxmem = np.max([self.maxmem,np.max(numc)])
+                except KeyError:
+                    pass
             tnumc = np.array([len(self.tsize[self.tsize>minmem])]*len(labmaster))
+            self.maxmem = np.max([self.maxmem,tnumc[0]])
             tnumc[tnumc < 1] = 0.01
             statsource = {'params':labmaster,'numc':numc,
                                'avgeff':effs,'avgcom':coms,
                                'avgfsi':fsil,
-                               'xvals':xvals,'alphas':alph,
+                               'xvals':xvals,
                                'tnumc':tnumc}
             setattr(self,'{0}_statsource'.format(dtype),ColumnDataSource(statsource))
             if 'sourcedict' not in dir(self):
@@ -198,7 +289,6 @@ class read_results(object):
         self.com = self.data['{0}_com_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
         self.fsize = self.data['{0}_found_size_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
         self.numc = len(self.fsize)
-        print('clusters',self.numc,len(self.eff))
         # Scrub nans
         self.msil[np.isnan(self.msil)] = -1
         self.fsil[np.isnan(self.fsil)] = -1
@@ -216,10 +306,10 @@ class read_results(object):
 
 class display_result(read_results):
 
-    def __init__(self,ind = 0, datatype = 'spec', case = 7, 
+    def __init__(self, datatype = 'spec', case = 7, 
                  timestamp = '2018-06-29.20.20.13.729481', pad = 0.1, 
                  backgroundhist = True,sqside = 460,tools=TOOLS):
-        read_results.__init__(self,ind=ind,datatype=datatype,case=case,
+        read_results.__init__(self,datatype=datatype,case=case,
                               timestamp=timestamp)
         self.sqside=sqside
         self.backgroundhist=backgroundhist
@@ -336,7 +426,7 @@ for (key in vnew{0}) {{
         self.s1 = figure(plot_width=300,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='log',
-                         toolbar_location=None,
+                         toolbar_location=None,y_range=(1,self.maxmem*1.1),
                          y_axis_label='Number Found')
         self.s1.y_range.start = 1
         self.s1.background_fill_color = self.bcolor
@@ -934,15 +1024,15 @@ for (key in vnew{0}) {{
             c2 = getattr(self,'{0}_c2'.format(dtype))
             c3 = getattr(self,'{0}_c3'.format(dtype))
             c4 = getattr(self,'{0}_c4'.format(dtype))
-            c1.data_source.data['numc'] = ss.data['numc']
+            c1.data_source.data = ss.data
             c1.glyph.y = 'numc'
-            c1l.data_source.data['tnumc'] = ss.data['tnumc']
+            c1l.data_source.data = ss.data
             c1l.glyph.y = 'tnumc'
-            c2.data_source.data['avgeff'] = ss.data['avgeff']
+            c2.data_source.data = ss.data
             c2.glyph.y = 'avgeff'
-            c3.data_source.data['avgcom'] = ss.data['avgcom']
+            c3.data_source.data = ss.data
             c3.glyph.y = 'avgcom'
-            c4.data_source.data['avgfsi'] = ss.data['avgfsi']
+            c4.data_source.data = ss.data
             c4.glyph.y = 'avgfsi'
 
 
