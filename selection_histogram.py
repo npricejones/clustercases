@@ -233,10 +233,8 @@ class read_results(object):
         xvals = np.arange(len(labmaster))
 
         # for each data type, create array to hold result of the runs
-        for d,dtype in enumerate(self.alldtypes):
+        for d,dtype in enumerate(list(nametypes.keys())):
             dtype = nametypes[dtype]
-            # Read in relevant data
-            self.read_dtype_data(datatype=dtype)
 
             # Initialize arrays
             effs = np.zeros(len(labmaster))
@@ -244,23 +242,31 @@ class read_results(object):
             fsil = -np.ones(len(labmaster))
             numc = 0.01*np.ones(len(labmaster))
 
-            # cycle through epsilon values for this run
-            for e,eps in enumerate(self.eps):
-                sizes = self.numms[e]
-                try:
-                    self.read_run_data(eps=eps,min_sample=self.min_samples[e],update=True,datatype=dtype)
-                    if len(self.eff) > 3:
-                        vals = sizes >= minmem
-                        if np.sum(vals) > 0:
-                            vals = np.where(vals)
-                            match = np.where(labmaster=='{0}, {1}'.format(eps,self.min_samples[e]))
-                            numc[match] = len(sizes[vals])
-                            effs[match] = np.mean(self.eff[vals])
-                            coms[match] = np.mean(self.com[vals])
-                            fsil[match] = np.mean(self.fsil[vals])
-                        self.maxmem = np.max([self.maxmem,np.max(numc)])
-                except KeyError:
-                    pass
+            print(self.alldtypes,typenames[dtype])
+            if typenames[dtype] in self.alldtypes:
+                # Read in relevant data
+                self.read_dtype_data(datatype=dtype)
+                # cycle through epsilon values for this run
+                for e,eps in enumerate(self.eps):
+                    sizes = self.numms[e]
+                    try:
+                        self.read_run_data(eps=eps,min_sample=self.min_samples[e],update=True,datatype=dtype)
+                        if len(self.eff) > 3:
+                            vals = sizes >= minmem
+                            if np.sum(vals) > 0:
+                                vals = np.where(vals)
+                                match = np.where(labmaster=='{0}, {1}'.format(eps,self.min_samples[e]))
+                                numc[match] = len(sizes[vals])
+                                effs[match] = np.mean(self.eff[vals])
+                                coms[match] = np.mean(self.com[vals])
+                                fsil[match] = np.mean(self.fsil[vals])
+                            self.maxmem = np.max([self.maxmem,np.max(numc)])
+                    except KeyError:
+                        pass
+            if typenames[dtype] not in self.alldtypes:
+                effs -= 1
+                coms -= 1
+                fsil -= 1
             tnumc = np.array([len(self.tsize[self.tsize>minmem])]*len(labmaster))
             self.maxmem = np.max([self.maxmem,tnumc[0]])
             tnumc[tnumc < 1] = 0.01
@@ -491,7 +497,7 @@ for (key in vnew{0}) {{
         self.s5.xgrid.visible = False
         self.s5.ygrid.visible = False
         self.s5.outline_line_color = None
-        for d,dtype in enumerate(list(self.nametypes.keys())):
+        for d,dtype in enumerate(list(nametypes.keys())):
             dtype = nametypes[dtype]
             c5 = self.s5.scatter(x=[0.5],y=[0.5],color=self.colorlist[d],size=5,alpha=0.6)
             items.append((typenames[dtype],[c5]))
@@ -938,12 +944,16 @@ for (key in vnew{0}) {{
         eps = float(eps)
         min_sample = int(min_sample)
         # read in new self.source
+        self.generate_average_stats(minmem=int(self.minsize.value),update=True)
         self.read_run_data(eps,min_sample,update=True)
-        self.source = ColumnDataSource(data=self.datadict)
-        self.sourcedict['newsource'] = self.source
         self.histograms(update=True)
         self.updateaxlim()
+        self.source = ColumnDataSource(data=self.datadict)
+        self.sourcedict['newsource'] = self.source
         self.JScallback()
+        print('I updated the JS')
+        print(self.sourcedict['source'].data['Efficiency'].shape)
+        print(self.sourcedict['newsource'].data['Efficiency'].shape)
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
         self.loadbutton.button_type='success'
         self.loadbutton.label = 'Click to load new data'
@@ -1013,11 +1023,14 @@ for (key in vnew{0}) {{
             min_sample = int(min_sample)
             self.source = ColumnDataSource(data=self.datadict)
             self.sourcedict['newsource'] = self.source
+            print('I updated the JS')
+            print(list(self.sourcedict.keys()))
             # read in new self.source
             self.read_run_data(eps,min_sample,update=True)
             self.histograms(update=True)
             self.updateaxlim()
             self.JScallback()
+            print(self.callbackstr)
             self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
             self.loadbutton.button_type='success'
             self.loadbutton.label = 'Click to load new data'
