@@ -491,7 +491,7 @@ for (key in vnew{0}) {{
         self.s5.xgrid.visible = False
         self.s5.ygrid.visible = False
         self.s5.outline_line_color = None
-        for d,dtype in enumerate(self.alldtypes):
+        for d,dtype in enumerate(list(self.nametypes.keys())):
             dtype = nametypes[dtype]
             c5 = self.s5.scatter(x=[0.5],y=[0.5],color=self.colorlist[d],size=5,alpha=0.6)
             items.append((typenames[dtype],[c5]))
