@@ -34,8 +34,11 @@ resultpath = os.getenv('CLUSTERCASES', cwd)
 
 # Types of data that clustering was run on
 
-typenames = {'spec':'spectra','abun':'abundances','toph':'tophat windows','wind':'windows'}
-nametypes = {'spectra':'spec','abundances':'abun','tophat windows':'toph','windows':'wind'}
+typenames = {'spec':'spectra','abun':'abundances','toph':'tophat windows','wind':'windows','prin':'principal components'}
+nametypes = {'spectra':'spec','abundances':'abun','tophat windows':'toph','windows':'wind','principal components':'prin'}
+
+#             orange     purple     blue        red       green
+colorlist = ["#F98D20", "#904C77", "#79ADDC", "#ED6A5A", "#B1EF73"] 
 
 zp = {'Efficiency':5e-3,'Completeness':5e-3,'Found Silhouette':5e-3,'Matched Silhouette':5e-3,'Found Size':0.5,'Matched Size':0.5}
 lzp=1e-3
@@ -421,11 +424,7 @@ for (key in vnew{0}) {{
         self.maincolor = "#A53F2B" #dark red
         self.histcolor = "#F6BD60" #yellow
         self.outcolor = "#280004" #dark red black
-        self.color1 = "#F98D20" # light orange
-        self.color2 = "#904C77" # purple
-        self.color3 = "#79ADDC" # light blue
-        self.color4 = "#ED6A5A" # orange
-        self.colorlist = [self.color1,self.color2,self.color3,self.color4]
+        self.colorlist = colorlist
         return [self.bcolor,self.unscolor,self.outcolor,
                 self.histcolor,self.maincolor]
 
@@ -1046,5 +1045,5 @@ for (key in vnew{0}) {{
             c4.glyph.y = 'avgfsi'
 
 
-starter = display_result(case='8',timestamp='2018-07-24.19.46.04.809278',datatype='spec',pad=0.1)
+starter = display_result(case='8',timestamp='2018-07-25.12.13.55.213653',datatype='spec',pad=0.1)
 
