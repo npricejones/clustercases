@@ -67,6 +67,11 @@ spreads = np.array([ch_cls,nh_cls,oh_cls,nah_cls,mgh_cls,alh_cls,sih_cls,sh_cls,
 
 elem = ['C','N','O','Na','Mg','Al','Si','S','K','Ca','Ti','V','Fe','Ni']
 
+eigdata = np.load('eig20_minSNR50_corrNone_meanMed.pkl_data.npz')
+eigvecs = eigdata['eigvec']
+eigvals = eigdata['eigval']
+
+
 tophats = np.load('tophat_elems.npy')
 windows = np.load('window_elems.npy')
 normeps = True
@@ -405,6 +410,9 @@ if __name__=='__main__':
     wind = combine_windows(windows = tophats,combelem=elem)
     case7.projspec(wind)
     case7.clustering(case7.projectspec,'wind',eps,min_samples,metric='precomputed',
+                    neighbours = 20,normeps=normeps)
+    case7.projspec(eigvecs[:10],eigvals=eigvals[:10])
+    case7.clustering(case7.projectspec,'prin',eps,min_samples,metric='precomputed',
                     neighbours = 20,normeps=normeps)
     end = time.time()
     case7.finish()
