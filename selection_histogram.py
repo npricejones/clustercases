@@ -102,6 +102,8 @@ class read_results(object):
         timestamp:      timestamp of file - default is from init
         neighbours:     number of neighbours used in silhouette calculation
         """
+        if not datatype:
+            datatype = self.dtype
         # open the h5py file
         self.data = h5py.File('case{0}_{1}.hdf5'.format(self.case,
                                                         self.timestamp),'r+')
@@ -125,7 +127,7 @@ class read_results(object):
         self.tsize = self.data['true_size'][:]
 
         # read in datatype specific data
-        self.read_dtype_data(datatype=dtype)
+        self.read_dtype_data(datatype=datatype)
         
     def read_dtype_data(self,datatype=None):
         """
@@ -133,17 +135,17 @@ class read_results(object):
 
         datatype:       type of data to gather - default is from init
         """
-        if datatype:
-            self.dtype = datatype
+        if not datatype:
+            datatype = self.dtype
 
         # read in silhouette coefficients of true clusters
-        self.tsil = self.data['{0}_true_sil_neigh{1}'.format(self.dtype,
+        self.tsil = self.data['{0}_true_sil_neigh{1}'.format(datatype,
                                                              neighbours)][:]
         # scrub nans from silhouette coefficients
         self.tsil[np.isnan(self.tsil)]=-1
 
         # read in predicted cluster labels across all parameter choices
-        self.labels_pred = self.data['{0}_labels_pred'.format(self.dtype)][:]
+        self.labels_pred = self.data['{0}_labels_pred'.format(datatype)][:]
 
         # create arrays to store cluster properties
         self.numcs = []
@@ -170,6 +172,7 @@ class read_results(object):
         self.numcs = np.array(self.numcs)
         # only plot if there's enough points (3 established by trial and error)
         self.goodinds = np.where(self.numcs > 3)
+        print(datatype,'available inds',self.goodinds)
         
         # check whether any of the parameter choices have enough clusters 
         # to plot are store result in allbad parameter
@@ -180,8 +183,8 @@ class read_results(object):
             self.allbad = True
 
         # read in properties of the runs
-        self.min_samples = self.data.attrs['{0}_min'.format(self.dtype)][:]
-        self.eps = self.data.attrs['{0}_eps'.format(self.dtype)][:]
+        self.min_samples = self.data.attrs['{0}_min'.format(datatype)][:]
+        self.eps = self.data.attrs['{0}_eps'.format(datatype)][:]
 
         # choose the run of interest, and globally note its parameters
         self.epsval = self.eps[self.goodind]
@@ -209,6 +212,7 @@ class read_results(object):
 
         # Track what datatype we were using to start
         vintdtype = copy.deepcopy(self.dtype)
+        print('run dtype',vintdtype)
 
         # Create a master list of labels in case different datatypes 
         # had different parameters 
@@ -241,8 +245,8 @@ class read_results(object):
             for e,eps in enumerate(self.eps):
                 sizes = self.numms[e]
                 try:
-                    self.read_run_data(eps=eps,min_sample=self.min_samples[e],update=True)
-                    if self.numc > 3:
+                    self.read_run_data(eps=eps,min_sample=self.min_samples[e],update=True,datatype=dtype)
+                    if len(self.eff) > 3:
                         vals = sizes >= minmem
                         if np.sum(vals) > 0:
                             vals = np.where(vals)
@@ -269,26 +273,29 @@ class read_results(object):
                 self.sourcedict['{0}source'.format(dtype)] = getattr(self,'{0}_statsource'.format(dtype))
             self.sourcedict['new{0}source'.format(dtype)] = getattr(self,'{0}_statsource'.format(dtype))
         self.dtype = vintdtype
-        #self.read_dtype_data(datatype=self.dtype)
-        #self.read_run_data(eps=self.epsval,min_sample=self.minval,update=True)
+        self.read_dtype_data()
+        self.read_run_data(eps=self.epsval,min_sample=self.minval,update=False)
 
-    def read_run_data(self,eps=None,min_sample=None,update=False):
+    def read_run_data(self,eps=None,min_sample=None,update=False,datatype=None):
+        if not datatype:
+            datatype = self.dtype
         if eps:
             self.epsval = eps
         if min_sample:
             self.minval = min_sample
-        self.matchtlabs = self.data['{0}_match_tlabs_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
+        self.matchtlabs = self.data['{0}_match_tlabs_eps{1}_min{2}'.format(datatype,self.epsval,self.minval)][:]
         if len(self.matchtlabs) > 0:
             self.msil = self.tsil[self.matchtlabs]
             self.msize = self.tsize[self.matchtlabs]
         elif len(self.matchtlabs) == 0:
             self.msil = np.array([])
             self.msize = np.array([])
-        self.fsil = self.data['{0}_found_sil_eps{1}_min{2}_neigh{3}'.format(self.dtype,self.epsval,self.minval,neighbours)][:]
-        self.eff = self.data['{0}_eff_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
-        self.com = self.data['{0}_com_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
-        self.fsize = self.data['{0}_found_size_eps{1}_min{2}'.format(self.dtype,self.epsval,self.minval)][:]
+        self.fsil = self.data['{0}_found_sil_eps{1}_min{2}_neigh{3}'.format(datatype,self.epsval,self.minval,neighbours)][:]
+        self.eff = self.data['{0}_eff_eps{1}_min{2}'.format(datatype,self.epsval,self.minval)][:]
+        self.com = self.data['{0}_com_eps{1}_min{2}'.format(datatype,self.epsval,self.minval)][:]
+        self.fsize = self.data['{0}_found_size_eps{1}_min{2}'.format(datatype,self.epsval,self.minval)][:]
         self.numc = len(self.fsize)
+        print('number of clusters',self.numc)
         # Scrub nans
         self.msil[np.isnan(self.msil)] = -1
         self.fsil[np.isnan(self.fsil)] = -1
@@ -945,13 +952,16 @@ for (key in vnew{0}) {{
     def updatedtype(self,attr,old,new):
         self.loadbutton.button_type='warning'
         self.loadbutton.label = 'Loading'
-        dtype = nametypes[new]
-        self.read_base_data(datatype=dtype)
+        self.dtype = nametypes[new]
+        print('first goodind',self.goodind)
+        self.read_base_data(datatype=self.dtype)
+        print('new goodind',self.goodind)
         if self.allbad:
             print("Didn't find any clusters for any parameter choices with {0} this run".format(typenames[self.dtype]))
             self.loadbutton.button_type='danger'
             self.loadbutton.label = 'No new data to load'
         elif not self.allbad:
+            self.generate_average_stats(minmem=int(self.minsize.value),update=True)
             self.selectparam.options = self.paramlist
             self.selectparam.value = self.paramchoices[self.goodind]
             eps,min_sample = [i.split('=')[-1] for i in self.selectparam.value.split(', ')]
@@ -1002,10 +1012,10 @@ for (key in vnew{0}) {{
             eps,min_sample = [i.split('=')[-1] for i in self.selectparam.value.split(', ')]
             eps = float(eps)
             min_sample = int(min_sample)
-            # read in new self.source
-            self.read_run_data(eps,min_sample,update=True)
             self.source = ColumnDataSource(data=self.datadict)
             self.sourcedict['newsource'] = self.source
+            # read in new self.source
+            self.read_run_data(eps,min_sample,update=True)
             self.histograms(update=True)
             self.updateaxlim()
             self.JScallback()
@@ -1036,5 +1046,5 @@ for (key in vnew{0}) {{
             c4.glyph.y = 'avgfsi'
 
 
-starter = display_result(case='8',timestamp='2018-07-24.19.46.04.809278',pad=0.1)
+starter = display_result(case='8',timestamp='2018-07-24.19.46.04.809278',datatype='spec',pad=0.1)
 
