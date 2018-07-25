@@ -954,6 +954,8 @@ for (key in vnew{0}) {{
         print('I updated the JS')
         print(self.sourcedict['source'].data['Efficiency'].shape)
         print(self.sourcedict['newsource'].data['Efficiency'].shape)
+        print(self.sourcedict['heff'].data['mainhist'])
+        print(self.sourcedict['newheff'].data['mainhist'])
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
         self.loadbutton.button_type='success'
         self.loadbutton.label = 'Click to load new data'
