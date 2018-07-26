@@ -229,7 +229,6 @@ class read_results(object):
 
         # Track what datatype we were using to start
         vintdtype = copy.deepcopy(self.dtype)
-        print('run dtype',vintdtype)
 
         # Create a master list of labels in case different datatypes 
         # had different parameters 
@@ -256,7 +255,6 @@ class read_results(object):
             fsil = -np.ones(len(labmaster))
             numc = 0.01*np.ones(len(labmaster))
 
-            print(self.alldtypes,typenames[dtype])
             if typenames[dtype] in self.alldtypes:
                 # Read in file data
                 self.read_dtype_data(datatype=dtype)
@@ -435,8 +433,8 @@ for (key in vnew{0}) {{
                 self.callbackstr += """
 {0}.change.emit();""".format(key)
         self.callbackstr += """
-button.label = 'Select new run info above';
-button.button_type = 'success';"""
+button.label = 'I do nothing until you select new run info above';
+button.button_type = 'warning';"""
 
     def layout_plots(self):
         """
@@ -460,30 +458,28 @@ button.button_type = 'success';"""
             self.buttons()
 
             # Set up layout
-            buttons = column(widgetbox(self.selectcase,width=200,height=30),
-                             widgetbox(self.selecttime,width=200,height=30),
-                             widgetbox(self.selectdtype,width=200,height=30),
-                             widgetbox(self.selectparam,width=200,height=30),
-                             widgetbox(self.loadbutton,width=200,height=30))
+            buttons = column(widgetbox(self.selectcase,width=350,height=30),
+                             widgetbox(self.selecttime,width=350,height=30),
+                             widgetbox(self.selectdtype,width=350,height=30),
+                             widgetbox(self.selectparam,width=350,height=30),
+                             widgetbox(self.loadbutton,width=350,height=30),
+                             widgetbox(self.toggleline,width=350,height=30),
+                             widgetbox(self.xradio,width=350),
+                             widgetbox(self.yradio,width=350))
 
-            mainplot = row(column(Tabs(tabs=self.panels,width=self.sqside+20)),
-                           column(Spacer(width=440,height=50),
-                                  row(Spacer(width=50,height=30),
-                                      widgetbox(self.toggleline,width=300)),
-                                  row(Spacer(width=50,height=100),
-                                      widgetbox(self.xradio,width=440)),
-                                  row(Spacer(width=50,height=100),
-                                      widgetbox(self.yradio,width=440)),
-                                  row(self.p_found_size,
-                                      self.p_matched_size)))
-            toprow = row(buttons,mainplot)
+            mainplot = row(buttons,
+                           Tabs(tabs=self.panels,width=self.sqside+20),
+                           column(Spacer(width=210,height=80),
+                                  self.p_found_size,
+                                  self.p_matched_size))
+
 
             histplot = row(self.p_efficiency,
                            self.p_completeness,
                            self.p_found_silhouette,
                            self.p_matched_silhouette)
             # Here's where you decide the distribution of plots
-            self.layout = column(toprow,histplot)
+            self.layout = column(mainplot,histplot)
 
             # Push data to documents
             curdoc().add_root(self.layout)
@@ -754,9 +750,9 @@ button.button_type = 'success';"""
 
         # If plot requested, make it
         if not update:
-            p = figure(toolbar_location=None, plot_width=220, plot_height=200,
+            p = figure(toolbar_location=None, plot_width=210, plot_height=200,
                         x_range=x_range,y_range=(ymin, hist_max), min_border=10, 
-                        min_border_left=50, y_axis_location="right",
+                        min_border_left=20, y_axis_location="right",
                         x_axis_label=key,x_axis_type=xscale,
                         y_axis_type=yscale)
             # Store the plot for future updates
@@ -881,7 +877,7 @@ button.button_type = 'success';"""
         self.selectparam.on_change('value',self.updateparam)
 
         # Create button to actually push results of new data to plot
-        self.loadbutton = Button(label='Select new run info above', button_type='success')
+        self.loadbutton = Button(label='I do nothing until you select new run info above', button_type='warning')
         self.sourcedict['button'] = self.loadbutton
         self.JScallback()
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
@@ -894,7 +890,7 @@ button.button_type = 'success';"""
         object4.visible = toggle.active
         '''
         linecb = CustomJS.from_coffeescript(code=code, args={})
-        self.toggleline = Toggle(label="One-to-one line", button_type="success", active=True,callback=linecb)
+        self.toggleline = Toggle(label="One-to-one line", button_type="default", active=True,callback=linecb)
         linecb.args = {'toggle': self.toggleline, 'object1': self.l1, 'object2': self.l2, 'object3': self.l3, 'object4': self.l4}
 
         # Add callbacks to update histograms with data selected from scatter plot
@@ -1046,13 +1042,21 @@ button.button_type = 'success';"""
 
         # Update upper limits on histograms
         self.p_found_size.x_range.end = 10**self.maxsize
+        self.p_found_size.y_range.end = 1.1*np.max([np.max(self.hsource_found_size.data['backhist']),
+                                                    np.max(self.hsource_found_size.data['mainhist'])])
+
         self.p_matched_size.x_range.end = 10**self.maxsize
-        self.p_found_size.y_range.end = 1.1*np.max(self.hsource_found_size.data['backhist'])
-        self.p_matched_size.y_range.end = 1.1*np.max(self.hsource_matched_size.data['backhist'])
+        self.p_matched_size.y_range.end = 1.1*np.max([np.max(self.hsource_matched_size.data['backhist']),
+                                                      np.max(self.hsource_matched_size.data['mainhist'])])
+        
         self.p_efficiency.y_range.end = 1.1*np.max(self.hsource_efficiency.data['mainhist'])
+        
         self.p_completeness.y_range.end = 1.1*np.max(self.hsource_completeness.data['mainhist'])
+        
         self.p_found_silhouette.y_range.end = 1.1*np.max(self.hsource_found_silhouette.data['mainhist'])
-        self.p_matched_silhouette.y_range.end = 1.1*np.max(self.hsource_matched_silhouette.data['backhist'])
+        
+        self.p_matched_silhouette.y_range.end = 1.1*np.max([np.max(self.hsource_matched_silhouette.data['backhist']),
+                                                            np.max(self.hsource_matched_silhouette.data['mainhist'])])
 
 
         # Update limits on the one-to-one lines in each panel
@@ -1105,17 +1109,19 @@ button.button_type = 'success';"""
 
         attr:       bokeh mandated arg, does nothing
         old:        bokeh mandated arg, does nothing
-        new:        bokeh mandated arg, specifies the parameter values to use
+        new:        bokeh mandated arg, index that specifies the parameter values to use
 
         """
         # Change color/text of load button for as long as data is loading
-        self.loadbutton.button_type='warning'
+        self.loadbutton.button_type='danger'
         self.loadbutton.label = 'Loading'
 
         # Extract new parameters to use
         eps,min_sample = [i.split('=')[-1] for i in new.split(', ')]
         eps = float(eps)
         min_sample = int(min_sample)
+        self.epsval = eps
+        self.minval = min_sample
         
         # Read in data with those parameters and update self.sourcedict['newsource']
         self.read_run_data(eps,min_sample,update=True)
@@ -1125,40 +1131,75 @@ button.button_type = 'success';"""
         self.updateaxlim()
         # Update loadbutton behaviour with new callback arguments (i.e. self.sourcedict has the new data in it in the 'new...' keys)
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
-        # Change the color/text of the load button back
-        self.loadbutton.button_type='primary'
+        # Change the color/text of the load button to indicate that it's ready
+        self.loadbutton.button_type='success'
         self.loadbutton.label = 'Click to load new data'
 
     def updatedtype(self,attr,old,new):
-        self.loadbutton.button_type='warning'
+        """
+        Update back end data with new datatype. Callback for selectdtype.
+        Requires loadbutton press for actual plot update.
+
+        attr:       bokeh mandated arg, does nothing
+        old:        bokeh mandated arg, does nothing
+        new:        bokeh mandated arg, index that specifies the datatype to use
+        """
+        # Change color/text of load button for as long as data is loading
+        self.loadbutton.button_type='danger'
         self.loadbutton.label = 'Loading'
+
+        # Extract datatype to use and read corresponding data
         self.dtype = nametypes[new]
-        print('first goodind',self.goodind)
         self.read_base_data(datatype=self.dtype)
-        print('new goodind',self.goodind)
+
+        # Are there are any parameters that work? If not, report to user
         if self.allbad:
             print("Didn't find any clusters for any parameter choices with {0} this run".format(typenames[self.dtype]))
-            self.loadbutton.button_type='danger'
+            self.loadbutton.button_type='warning'
             self.loadbutton.label = 'No new data to load'
+
         elif not self.allbad:
+            # Update parameter dropdown menu for new dtype
             self.selectparam.options = self.paramlist
-            self.selectparam.value = self.paramchoices[self.goodind]
+            # Read parameters
             eps,min_sample = [i.split('=')[-1] for i in self.selectparam.value.split(', ')]
             eps = float(eps)
             min_sample = int(min_sample)
+            match = np.where((eps==self.eps) & (min_sample==self.min_samples))[0]
+            # If these parameters don't exist for that datatype, use defaults
+            if len(match) < 1: 
+                self.selectparam.value = self.paramchoices[self.goodind]
+                eps,min_sample = [i.split('=')[-1] for i in self.selectparam.value.split(', ')]
+            elif len(match) >= 1:
+                if len(match) > 1:
+                    warning.warn('This file is lacking unique identifiers - multiple runs with the same parameters')
+                m = match[0]
+                # If parameters exist but not clusters were found, use defaults
+                if m not in np.array(self.goodinds):
+                    self.selectparam.value = self.paramchoices[self.goodind]
+                    eps,min_sample = [i.split('=')[-1] for i in self.selectparam.value.split(', ')]
+
+            self.epsval = eps
+            self.minval = min_sample
+            
             # read in new self.source
             self.read_run_data(eps,min_sample,update=True)
             self.source = ColumnDataSource(data=self.datadict)
             self.sourcedict['newsource'] = self.source
+
+            # Update self.sourcedict with new histogram data
             self.histograms(update=True)
+            # Update axes to bounds of new data
             self.updateaxlim()
-            self.JScallback()
+
+            # Update loadbutton behaviour with new callback arguments (i.e. self.sourcedict has the new data in it in the 'new...' keys)
             self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
+            # Change the color/text of the load button to indicate that it's ready
             self.loadbutton.button_type='success'
             self.loadbutton.label = 'Click to load new data'
 
     def updatecase(self,attr,old,new):
-        self.loadbutton.button_type='warning'
+        self.loadbutton.button_type='danger'
         self.loadbutton.label = 'Loading'
         self.case = new
         caselist = glob.glob('*.hdf5')
@@ -1174,7 +1215,7 @@ button.button_type = 'success';"""
         self.selecttime.value = times[0]
 
     def updatetime(self,attr,old,new):
-        self.loadbutton.button_type='warning'
+        self.loadbutton.button_type='danger'
         self.loadbutton.label = 'Loading'
         self.timestamp = new
         dtype = nametypes[self.selectdtype.value]
@@ -1192,14 +1233,11 @@ button.button_type = 'success';"""
             min_sample = int(min_sample)
             self.source = ColumnDataSource(data=self.datadict)
             self.sourcedict['newsource'] = self.source
-            print('I updated the JS')
-            print(list(self.sourcedict.keys()))
             # read in new self.source
             self.read_run_data(eps,min_sample,update=True)
             self.histograms(update=True)
             self.updateaxlim()
             self.JScallback()
-            print(self.callbackstr)
             self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
             self.loadbutton.button_type='success'
             self.loadbutton.label = 'Click to load new data'
@@ -1631,7 +1669,7 @@ for (key in vnew{0}) {{
             self.maxsize = np.max(np.array([np.max(self.source.data['Found Size']),
                                             np.max(self.source.data['Matched Size']),
                                             np.max(self.tsize)]))
-            self.maxsize = np.log10(self.maxsize)
+            self.maxsize = 1.1*np.log10(self.maxsize)
         except ValueError:
             self.maxsize=10
         self.make_hist('Found Size',bins=np.logspace(0,self.maxsize,nbins),
@@ -1691,7 +1729,7 @@ for (key in vnew{0}) {{
         self.selectparam = Select(title="parameter values", value=self.paramchoices[self.goodind], 
                            options=self.paramlist)
         self.selectparam.on_change('value',self.updateparam)
-        self.loadbutton = Button(label='Select new run info above', button_type='success')
+        self.loadbutton = Button(label='I do nothing until you select new run info above', button_type='success')
         self.JScallback()
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
         
@@ -1804,8 +1842,8 @@ for (key in vnew{0}) {{
         self.p4.y_range.start = slymin
         self.p4.y_range.end = ymax
 
-        self.p_found_size.x_range.end = 10**self.maxsize
-        self.p_matched_size.x_range.end = 10**self.maxsize
+        self.p_found_size.x_range.end = 10**1.1*self.maxsize
+        self.p_matched_size.x_range.end = 10**1.1*self.maxsize
         self.p_efficiency.y_range.end = 1.1*np.max(self.hsource_efficiency.data['mainhist'])
         self.p_completeness.y_range.end = 1.1*np.max(self.hsource_completeness.data['mainhist'])
         self.p_found_silhouette.y_range.end = 1.1*np.max(self.hsource_found_silhouette.data['mainhist'])
