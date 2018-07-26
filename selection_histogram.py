@@ -34,8 +34,11 @@ resultpath = os.getenv('CLUSTERCASES', cwd)
 
 # Types of data that clustering was run on
 
-typenames = {'spec':'spectra','abun':'abundances','toph':'tophat windows','wind':'windows'}
-nametypes = {'spectra':'spec','abundances':'abun','tophat windows':'toph','windows':'wind'}
+typenames = {'spec':'spectra','abun':'abundances','toph':'tophat windows','wind':'windows','prin':'principal components'}
+nametypes = {'spectra':'spec','abundances':'abun','tophat windows':'toph','windows':'wind','principal components':'prin'}
+
+#             orange     purple     blue        red       green
+colorlist = ["#F98D20", "#904C77", "#79ADDC", "#ED6A5A", "#B1EF73"] 
 
 zp = {'Efficiency':5e-3,'Completeness':5e-3,'Found Silhouette':5e-3,'Matched Silhouette':5e-3,'Found Size':0.5,'Matched Size':0.5}
 lzp=1e-3
@@ -230,10 +233,8 @@ class read_results(object):
         xvals = np.arange(len(labmaster))
 
         # for each data type, create array to hold result of the runs
-        for d,dtype in enumerate(self.alldtypes):
+        for d,dtype in enumerate(list(nametypes.keys())):
             dtype = nametypes[dtype]
-            # Read in relevant data
-            self.read_dtype_data(datatype=dtype)
 
             # Initialize arrays
             effs = np.zeros(len(labmaster))
@@ -241,23 +242,31 @@ class read_results(object):
             fsil = -np.ones(len(labmaster))
             numc = 0.01*np.ones(len(labmaster))
 
-            # cycle through epsilon values for this run
-            for e,eps in enumerate(self.eps):
-                sizes = self.numms[e]
-                try:
-                    self.read_run_data(eps=eps,min_sample=self.min_samples[e],update=True,datatype=dtype)
-                    if len(self.eff) > 3:
-                        vals = sizes >= minmem
-                        if np.sum(vals) > 0:
-                            vals = np.where(vals)
-                            match = np.where(labmaster=='{0}, {1}'.format(eps,self.min_samples[e]))
-                            numc[match] = len(sizes[vals])
-                            effs[match] = np.mean(self.eff[vals])
-                            coms[match] = np.mean(self.com[vals])
-                            fsil[match] = np.mean(self.fsil[vals])
-                        self.maxmem = np.max([self.maxmem,np.max(numc)])
-                except KeyError:
-                    pass
+            print(self.alldtypes,typenames[dtype])
+            if typenames[dtype] in self.alldtypes:
+                # Read in relevant data
+                self.read_dtype_data(datatype=dtype)
+                # cycle through epsilon values for this run
+                for e,eps in enumerate(self.eps):
+                    sizes = self.numms[e]
+                    try:
+                        self.read_run_data(eps=eps,min_sample=self.min_samples[e],update=True,datatype=dtype)
+                        if len(self.eff) > 3:
+                            vals = sizes >= minmem
+                            if np.sum(vals) > 0:
+                                vals = np.where(vals)
+                                match = np.where(labmaster=='{0}, {1}'.format(eps,self.min_samples[e]))
+                                numc[match] = len(sizes[vals])
+                                effs[match] = np.mean(self.eff[vals])
+                                coms[match] = np.mean(self.com[vals])
+                                fsil[match] = np.mean(self.fsil[vals])
+                            self.maxmem = np.max([self.maxmem,np.max(numc)])
+                    except KeyError:
+                        pass
+            if typenames[dtype] not in self.alldtypes:
+                effs -= 1
+                coms -= 1
+                fsil -= 1
             tnumc = np.array([len(self.tsize[self.tsize>minmem])]*len(labmaster))
             self.maxmem = np.max([self.maxmem,tnumc[0]])
             tnumc[tnumc < 1] = 0.01
@@ -421,11 +430,7 @@ for (key in vnew{0}) {{
         self.maincolor = "#A53F2B" #dark red
         self.histcolor = "#F6BD60" #yellow
         self.outcolor = "#280004" #dark red black
-        self.color1 = "#F98D20" # light orange
-        self.color2 = "#904C77" # purple
-        self.color3 = "#79ADDC" # light blue
-        self.color4 = "#ED6A5A" # orange
-        self.colorlist = [self.color1,self.color2,self.color3,self.color4]
+        self.colorlist = colorlist
         return [self.bcolor,self.unscolor,self.outcolor,
                 self.histcolor,self.maincolor]
 
@@ -492,7 +497,7 @@ for (key in vnew{0}) {{
         self.s5.xgrid.visible = False
         self.s5.ygrid.visible = False
         self.s5.outline_line_color = None
-        for d,dtype in enumerate(self.alldtypes):
+        for d,dtype in enumerate(list(nametypes.keys())):
             dtype = nametypes[dtype]
             c5 = self.s5.scatter(x=[0.5],y=[0.5],color=self.colorlist[d],size=5,alpha=0.6)
             items.append((typenames[dtype],[c5]))
@@ -939,13 +944,18 @@ for (key in vnew{0}) {{
         eps = float(eps)
         min_sample = int(min_sample)
         # read in new self.source
+        self.generate_average_stats(minmem=int(self.minsize.value),update=True)
         self.read_run_data(eps,min_sample,update=True)
-        self.source = ColumnDataSource(data=self.datadict)
-        self.sourcedict['newsource'] = self.source
-        print('I updated the column data source')
         self.histograms(update=True)
         self.updateaxlim()
+        self.source = ColumnDataSource(data=self.datadict)
+        self.sourcedict['newsource'] = self.source
         self.JScallback()
+        print('I updated the JS')
+        print(self.sourcedict['source'].data['Efficiency'].shape)
+        print(self.sourcedict['newsource'].data['Efficiency'].shape)
+        print(self.sourcedict['heff'].data['mainhist'])
+        print(self.sourcedict['newheff'].data['mainhist'])
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
         self.loadbutton.button_type='success'
         self.loadbutton.label = 'Click to load new data'
@@ -1015,11 +1025,14 @@ for (key in vnew{0}) {{
             min_sample = int(min_sample)
             self.source = ColumnDataSource(data=self.datadict)
             self.sourcedict['newsource'] = self.source
+            print('I updated the JS')
+            print(list(self.sourcedict.keys()))
             # read in new self.source
             self.read_run_data(eps,min_sample,update=True)
             self.histograms(update=True)
             self.updateaxlim()
             self.JScallback()
+            print(self.callbackstr)
             self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
             self.loadbutton.button_type='success'
             self.loadbutton.label = 'Click to load new data'
@@ -1047,5 +1060,5 @@ for (key in vnew{0}) {{
             c4.glyph.y = 'avgfsi'
 
 
-starter = display_result(case='8',timestamp='2018-07-24.19.46.04.809278',datatype='spec',pad=0.1)
+starter = display_result(case='8',timestamp='2018-07-25.12.13.55.213653',datatype='spec',pad=0.1)
 
