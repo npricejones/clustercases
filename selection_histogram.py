@@ -411,14 +411,15 @@ class display_run_result(read_results):
 
         self.callbackstr =''         
 
+        keylist = list(self.sourcedict.keys())
+        keylist.remove('button')
         # Initizlize variables
-        for key in list(self.sourcedict.keys()):
+        for key in list(keylist):
             self.callbackstr += """
 var v{0} = {0}.data;""".format(key)
 
-
         # Update contents of the variables
-        for key in list(self.sourcedict.keys()):
+        for key in list(keylist):
             if 'new' not in key:
                 self.callbackstr += """
 for (key in vnew{0}) {{
@@ -429,10 +430,13 @@ for (key in vnew{0}) {{
 }}""".format(key)
     
         # Push changes to the variables
-        for key in list(self.sourcedict.keys()):
+        for key in list(keylist):
             if 'new' not in key:
                 self.callbackstr += """
 {0}.change.emit();""".format(key)
+        self.callbackstr += """
+button.label = 'Select new run info above';
+button.button_type = 'success';"""
 
     def layout_plots(self):
         """
@@ -877,6 +881,7 @@ for (key in vnew{0}) {{
 
         # Create button to actually push results of new data to plot
         self.loadbutton = Button(label='Select new run info above', button_type='success')
+        self.sourcedict['button'] = self.loadbutton
         self.JScallback()
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
         
@@ -926,7 +931,7 @@ for (key in vnew{0}) {{
 
     def updatetophist(self, attr, old, new):
         """
-        Updates the tops of the selection histogram
+        Updates the tops of the selection histogram. Call back for scatter.on_change
 
         attr:       bokeh mandated arg, does nothing
         old:        bokeh mandated arg, does nothing
@@ -961,6 +966,9 @@ for (key in vnew{0}) {{
                 h.glyph.top = 'selected'
 
     def updateaxlim(self):
+        """
+        Updates limits of axes and one-to-one line. Used in several callbacks.
+        """
         # Find out what data is currently being used
         xkey = self.labels[self.xradio.active]
         ykey = self.labels[self.yradio.active]
@@ -1061,7 +1069,7 @@ for (key in vnew{0}) {{
 
     def updateallx(self,new):
         """
-        Update x glyphs in the panels
+        Update x glyphs in the panels. Callback for xradio.
 
         new:        bokeh mandated arg, key to data to use
         """
@@ -1076,7 +1084,7 @@ for (key in vnew{0}) {{
 
     def updateally(self,new):
         """
-        Update y glyphs in the panels
+        Update y glyphs in the panels. Callback for yradio
 
         new:        bokeh mandated arg, key to data to use
         """
@@ -1090,25 +1098,34 @@ for (key in vnew{0}) {{
             p.yaxis.axis_label = self.labels[new]
 
     def updateparam(self,attr,old,new):
+        """
+        Update back end data with new parameters. Callback for paramselect.
+        Requires loadbutton press for actual plot update.
+
+        attr:       bokeh mandated arg, does nothing
+        old:        bokeh mandated arg, does nothing
+        new:        bokeh mandated arg, specifies the parameter values to use
+
+        """
+        # Change color/text of load button for as long as data is loading
         self.loadbutton.button_type='warning'
         self.loadbutton.label = 'Loading'
+
+        # Extract new parameters to use
         eps,min_sample = [i.split('=')[-1] for i in new.split(', ')]
         eps = float(eps)
         min_sample = int(min_sample)
-        # read in new self.source
+        
+        # Read in data with those parameters and update self.sourcedict['newsource']
         self.read_run_data(eps,min_sample,update=True)
+        # Update self.sourcedict with new histogram data
         self.histograms(update=True)
+        # Update axes to bounds of new data
         self.updateaxlim()
-        self.source = ColumnDataSource(data=self.datadict)
-        self.sourcedict['newsource'] = self.source
-        self.JScallback()
-        print('I updated the JS')
-        print(self.sourcedict['source'].data['Efficiency'].shape)
-        print(self.sourcedict['newsource'].data['Efficiency'].shape)
-        print(self.sourcedict['heff'].data['mainhist'])
-        print(self.sourcedict['newheff'].data['mainhist'])
+        # Update loadbutton behaviour with new callback arguments (i.e. self.sourcedict has the new data in it in the 'new...' keys)
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
-        self.loadbutton.button_type='success'
+        # Change the color/text of the load button back
+        self.loadbutton.button_type='primary'
         self.loadbutton.label = 'Click to load new data'
 
     def updatedtype(self,attr,old,new):
