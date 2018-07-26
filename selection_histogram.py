@@ -942,6 +942,7 @@ for (key in vnew{0}) {{
         self.read_run_data(eps,min_sample,update=True)
         self.source = ColumnDataSource(data=self.datadict)
         self.sourcedict['newsource'] = self.source
+        print('I updated the column data source')
         self.histograms(update=True)
         self.updateaxlim()
         self.JScallback()
