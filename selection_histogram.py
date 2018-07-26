@@ -459,6 +459,7 @@ button.button_type = 'success';"""
             # Create buttons
             self.buttons()
 
+            # Set up layout
             buttons = column(widgetbox(self.selectcase,width=200,height=30),
                              widgetbox(self.selecttime,width=200,height=30),
                              widgetbox(self.selectdtype,width=200,height=30),
