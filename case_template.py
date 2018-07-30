@@ -78,6 +78,13 @@ tophats = np.load('tophat_elems.npy')
 windows = np.load('window_elems.npy')
 normeps = True
 
+def abuninds(elems,combelem):
+    inds = []
+    for e,elem in enumerate(elems):
+        if elem in combelem:
+            inds.append(e)
+    return np.array(inds)
+
 def combine_windows(windows = tophats,combelem=elem,func=np.ma.mean):
     """
     Combine windows from various elements into a single spectrum
@@ -89,12 +96,7 @@ def combine_windows(windows = tophats,combelem=elem,func=np.ma.mean):
 
     Returns spectrum   
     """
-    newwindows = np.zeros((len(combelem),7214))
-    c = 0
-    for e,elem in enumerate(elems):
-        if elem in combelem:
-            newwindows[c] = windows[e]
-    windows = newwindows
+    windows = windows[abuninds(elem,combelem)]
     mask = windows == 0
     windows = np.ma.masked_array(windows,mask=mask)
     combspec = func(windows,axis=0)
