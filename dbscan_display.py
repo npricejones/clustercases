@@ -1436,7 +1436,7 @@ button.button_type = 'warning';"""
 
         # Dummy plot to generate the legend
         items = []
-        self.s5 = figure(plot_width=200,plot_height=200,
+        self.s5 = figure(plot_width=200,plot_height=500,
                          x_axis_location=None,y_axis_location=None,
                          toolbar_location=None,x_range=(0,1),y_range=(0,1))
         # Make it invisible
