@@ -1449,7 +1449,7 @@ button.button_type = 'warning';"""
             c5 = self.s5.scatter(x=[0.5],y=[0.5],color=typecolor[dtype],size=5,alpha=0.6)
             items.append((typenames[dtype],[c5]))
         legend = Legend(items=items, location=(0,30))
-        self.s5.add_layout(legend, 'center')
+        self.s5.add_layout(legend, 'top_center')
         self.s5.legend.background_fill_alpha = 1
 
 
