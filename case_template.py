@@ -67,6 +67,7 @@ spreads = np.array([ch_cls,nh_cls,oh_cls,nah_cls,mgh_cls,alh_cls,sih_cls,sh_cls,
                     cah_cls,tih_cls,vh_cls,mnh_cls,nih_cls,feh_cls])
 
 elem = ['C','N','O','Na','Mg','Al','Si','S','K','Ca','Ti','V','Fe','Ni']
+combelem = ['Na','Mg','Al','Si','S','K','Ca','Ti','V','Ni']
 
 eigdata = np.load('eig20_minSNR50_corrNone_meanMed.pkl_data.npz')
 eigvecs = eigdata['eigvec']
@@ -88,7 +89,12 @@ def combine_windows(windows = tophats,combelem=elem,func=np.ma.mean):
 
     Returns spectrum   
     """
-
+    newwindows = np.zeros((len(combelem),7214))
+    c = 0
+    for e,elem in enumerate(elems):
+        if elem in combelem:
+            newwindows[c] = windows[e]
+    windows = newwindows
     mask = windows == 0
     windows = np.ma.masked_array(windows,mask=mask)
     combspec = func(windows,axis=0)
@@ -414,9 +420,9 @@ if __name__=='__main__':
                     neighbours = 20,normeps=normeps)
     case7.clustering(case7.abundances,'abun',eps,min_samples,metric='precomputed',
                     neighbours = 20,normeps=normeps)
-    wind = combine_windows(windows = tophats,combelem=elem)
-    case7.projspec(wind)
-    case7.clustering(case7.projectspec,'wind',eps,min_samples,metric='precomputed',
+    toph = combine_windows(windows = tophats,combelem=combelem,func=np.ma.any)
+    case7.projspec(toph)
+    case7.clustering(case7.projectspec,'toph',eps,min_samples,metric='precomputed',
                     neighbours = 20,normeps=normeps)
     case7.reduction(reduct = PCA, n_components=10)
     case7.clustering(case7.projectspec,'prin',eps,min_samples,metric='precomputed',
