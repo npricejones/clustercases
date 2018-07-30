@@ -19,6 +19,7 @@ from sklearn.cluster import DBSCAN, MiniBatchKMeans
 from sklearn.metrics import silhouette_score
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.preprocessing import PolynomialFeatures
+from sklearn.decomposition import PCA
 from clustering_stats import *
 
 # THEORETICAL INTRA CLUSTER SPREAD AT SNR=100                                                                                             
@@ -76,20 +77,21 @@ tophats = np.load('tophat_elems.npy')
 windows = np.load('window_elems.npy')
 normeps = True
 
-def combine_windows(windows = tophats,combelem=elem):
+def combine_windows(windows = tophats,combelem=elem,func=np.ma.mean):
     """
     Combine windows from various elements into a single spectrum
     for dot product with spectrum.
 
     windows:    set of windows to use (tophats or actual windows)
     combelem:   list of elements to combine
+    func:       function to use when combining the windows
 
     Returns spectrum   
     """
 
     mask = windows == 0
     windows = np.ma.masked_array(windows,mask=mask)
-    combspec = np.ma.mean(windows,axis=0)
+    combspec = func(windows,axis=0)
     return combspec.data
 
 
@@ -313,6 +315,11 @@ class caserun(object):
         tcount,tlabs = membercount(self.labels_true)
         self.plot['true_size'] = tcount
 
+    def reduction(self,reduct=PCA,**kwargs):
+        red = reduct(**kwargs)
+        self.projspec = red.fit_transform(self.specinfo.spectra)
+
+
     def projspec(self,arr,eigvals=None):
         if isinstance(arr,list):
             arr = np.array(arr)
@@ -411,7 +418,7 @@ if __name__=='__main__':
     case7.projspec(wind)
     case7.clustering(case7.projectspec,'wind',eps,min_samples,metric='precomputed',
                     neighbours = 20,normeps=normeps)
-    case7.projspec(eigvecs[:10],eigvals=eigvals[:10])
+    case7.reduction(reduct = PCA, n_components=10)
     case7.clustering(case7.projectspec,'prin',eps,min_samples,metric='precomputed',
                     neighbours = 20,normeps=normeps)
     end = time.time()
