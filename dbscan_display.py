@@ -269,6 +269,9 @@ class read_results(object):
             coms = np.zeros(len(labmaster))
             fsil = -np.ones(len(labmaster))
             numc = 0.01*np.ones(len(labmaster))
+            meds = np.ones(len(labmaster))
+            stds = np.zeros(len(labmaster))
+            maxs = np.ones(len(labmaster))
 
             if typenames[dtype] in self.alldtypes:
                 # Read in file data
@@ -287,6 +290,9 @@ class read_results(object):
                                 vals = np.where(vals)
                                 match = np.where(labmaster=='{0}, {1}'.format(eps,self.min_samples[e]))
                                 numc[match] = len(sizes[vals])
+                                meds[match] = np.median(sizes[vals])
+                                stds[match] = np.std(sizes[vals])
+                                maxs[match] = np.max(sizes[vals])
                                 effs[match] = np.mean(self.eff[vals])
                                 coms[match] = np.mean(self.com[vals])
                                 fsil[match] = np.mean(self.fsil[vals])
@@ -298,16 +304,25 @@ class read_results(object):
                 effs -= 1
                 coms -= 1
                 fsil -= 1
+                meds *= 0.01
+                maxs *= 0.01
             # Calculate the true number of clusters above a given limit
             tnumc = np.array([len(self.tsize[self.tsize>minmem])]*len(labmaster))
             self.maxmem = np.max([self.maxmem,tnumc[0]])
+            tmaxs = np.array([np.max(self.tsize[self.tsize>minmem])]*len(labmaster))
+            tmeds = np.array([np.median(self.tsize[self.tsize>minmem])]*len(labmaster))
+            tstds = np.array([np.stds(self.tsize[self.tsize>minmem])]*len(labmaster))
             # If the true number of clusters above the limit is None, move out of plot range
             tnumc[tnumc < 1] = 0.01
+            tmaxs[tmaxs < 1] = 0.01
+            tmeds[tmeds < 1] = 0.01
             # Create dictionary for plotting
             statsource = {'params':labmaster,'numc':numc,
                                'avgeff':effs,'avgcom':coms,
-                               'avgfsi':fsil,
-                               'xvals':xvals,
+                               'avgfsi':fsil,'maxsiz':maxs,
+                               'xvals':xvals,'medsiz':meds,
+                               'stdsiz':stds,'tmaxs':tmaxs,
+                               'tmeds':tmeds,'tstds':tstds
                                'tnumc':tnumc}
             # Add ColumnDataSource object to class
             setattr(self,'{0}_statsource'.format(dtype),ColumnDataSource(statsource))
@@ -1362,7 +1377,9 @@ button.button_type = 'warning';"""
             avgplots = row(column(self.s1,
                                   self.s2),
                            column(self.s4,
-                                  self.s3))
+                                  self.s3),
+                           column(self.s6,
+                                  self.s7))
             topplots = row(buttons,avgplots)
 
             # Here's where you decide the distribution of plots
@@ -1433,6 +1450,32 @@ button.button_type = 'warning';"""
             c4 = self.s4.scatter(x='xvals',y='avgfsi',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
             setattr(self,'{0}_c4'.format(dtype),c4)
         self.label_stat_xaxis(self.s4,dtype=self.dtype)
+
+        # Max cluster sizes
+        self.s6 = figure(plot_width=300,plot_height=250,min_border=10,
+                         x_axis_location='below', y_axis_location='left',
+                         x_axis_type='linear',y_axis_type='linear',
+                         toolbar_location=None,
+                         y_range=(-1.06,1.06),y_axis_label='Max cluster size')
+        self.s6.background_fill_color = self.bcolor
+        for d,dtype in enumerate(self.alldtypes):
+            dtype = nametypes[dtype]
+            c6 = self.s6.scatter(x='xvals',y='maxsiz',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
+            setattr(self,'{0}_c6'.format(dtype),c6)
+        self.label_stat_xaxis(self.s6,dtype=self.dtype)
+
+        # Median cluster sizes
+        self.s7 = figure(plot_width=300,plot_height=250,min_border=10,
+                         x_axis_location='below', y_axis_location='left',
+                         x_axis_type='linear',y_axis_type='linear',
+                         toolbar_location=None,
+                         y_range=(-1.06,1.06),y_axis_label='Max cluster size')
+        self.s7.background_fill_color = self.bcolor
+        for d,dtype in enumerate(self.alldtypes):
+            dtype = nametypes[dtype]
+            c7 = self.s7.scatter(x='xvals',y='medsiz',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
+            setattr(self,'{0}_c7'.format(dtype),c7)
+        self.label_stat_xaxis(self.s7,dtype=self.dtype)
 
         # Dummy plot to generate the legend
         items = []
@@ -1578,6 +1621,8 @@ button.button_type = 'warning';"""
             c2 = getattr(self,'{0}_c2'.format(dtype))
             c3 = getattr(self,'{0}_c3'.format(dtype))
             c4 = getattr(self,'{0}_c4'.format(dtype))
+            c6 = getattr(self,'{0}_c6'.format(dtype))
+            c7 = getattr(self,'{0}_c7'.format(dtype))
 
             # Change source and update glyphs
 
@@ -1596,6 +1641,12 @@ button.button_type = 'warning';"""
             # Average silhouette coefficient
             c4.data_source.data = ss.data
             c4.glyph.y = 'avgfsi'
+            # Max cluster size
+            c6.data_source.data = ss.data
+            c6.glyph.y = 'maxsiz'
+            # Median cluster size
+            c7.data_source.data = ss.data
+            c7.glyph.y = 'medsiz'
 
 if __name__ == '__main__':
     singlerun = display_single(case='8',timestamp='2018-07-25.12.13.55.213653',datatype='spec',pad=0.1)
