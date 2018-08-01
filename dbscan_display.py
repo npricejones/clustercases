@@ -1482,7 +1482,7 @@ button.button_type = 'warning';"""
         self.label_stat_xaxis(self.s7,dtype=self.dtype)
 
         # Dummy plot to generate the legend
-        items = []
+        #items = []
         self.s5 = figure(plot_width=200,plot_height=400,
                          x_axis_location=None,y_axis_location=None,
                          toolbar_location=None,x_range=(0,1),y_range=(0,1))
@@ -1493,10 +1493,12 @@ button.button_type = 'warning';"""
         self.s5.outline_line_color = None
         for d,dtype in enumerate(list(nametypes.keys())):
             dtype = nametypes[dtype]
-            c5 = self.s5.scatter(x=[0.5],y=[0.5],color=typecolor[dtype],size=5,alpha=0.6)
-            items.append((typenames[dtype],[c5]))
-        legend = Legend(items=items, location=(0,30))
-        self.s5.add_layout(legend, 'center')
+            c5 = self.s5.scatter(x=[0.5],y=[0.5],color=typecolor[dtype],size=5,alpha=0.6,legend=typenames[dtype])
+            #items.append((typenames[dtype],[c5]))
+        #legend = Legend(items=items, location=(0,30))
+        #self.s5.add_layout(legend, 'center')
+        self.s5.legend.location = "top_left"
+        self.s5.legend.click_policy="hide"
         self.s5.legend.background_fill_alpha = 1
 
 
@@ -1613,6 +1615,7 @@ button.button_type = 'warning';"""
         """
         # Find the minimum
         num = int(new)
+        self.minsize.title = "Minimum size - choose between 1 and {0}:".format(int(self.maxmem))
         # Recalculate averages - includes natural zeroing if datatype not present
         self.generate_average_stats(minmem=num,minlim=num)
         # Cycle through available data types  and update glyphs
@@ -1657,9 +1660,6 @@ button.button_type = 'warning';"""
             c7.glyph.y = 'medsiz'
             c7l.data_source.data = ss.data
             c7l.glyph.y = 'tmeds'
-            #w7.source.data = ss.data
-            #w7.upper = 'upsiz'
-            #w7.lower = 'dosiz'
 
 
 if __name__ == '__main__':
