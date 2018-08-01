@@ -313,6 +313,8 @@ class read_results(object):
             tnumc[tnumc < 1] = 0.01
             tmaxs[tmaxs < 1] = 0.01
             tmeds[tmeds < 1] = 0.01
+            tupper = tmeds + tstds
+            tlower = tmeds - tstds
             upper = meds+stds
             lower = meds-stds
             lower[lower < minlim] = minlim
@@ -324,8 +326,7 @@ class read_results(object):
                                'avgfsi':fsil,'maxsiz':maxs,
                                'xvals':xvals,'medsiz':meds,
                                'upsiz':upper,'dosiz':lower,
-                               'tmaxs':tmaxs,'uptsi':tmeds+tstds,
-                               'tmeds':tmeds,'dotsi':tmeds-tstds,
+                               'tmaxs':tmaxs,'tmeds':tmeds,
                                'tnumc':tnumc}
             # Add ColumnDataSource object to class
             setattr(self,'{0}_statsource'.format(dtype),ColumnDataSource(statsource))
@@ -1379,10 +1380,10 @@ button.button_type = 'warning';"""
                              self.s5)
             avgplots = row(column(self.s1,
                                   self.s2),
-                           column(self.s4,
-                                  self.s3),
                            column(self.s6,
-                                  self.s7))
+                                  self.s3),
+                           column(self.s7,
+                                  self.s4))
             topplots = row(buttons,avgplots)
 
             # Here's where you decide the distribution of plots
@@ -1478,13 +1479,15 @@ button.button_type = 'warning';"""
         self.s7.background_fill_color = self.bcolor
         for d,dtype in enumerate(self.alldtypes):
             dtype = nametypes[dtype]
-            w7 = Whisker(source=getattr(self,'{0}_statsource'.format(dtype)), base="xvals", upper="upsiz", lower="dosiz",line_color=typecolor[dtype],line_alpha=0.6)
-            w7.upper_head.line_color=typecolor[dtype]
-            w7.lower_head.line_color=typecolor[dtype]
-            self.s7.add_layout(w7)
+            #w7 = Whisker(source=getattr(self,'{0}_statsource'.format(dtype)), base="xvals", upper="upsiz", lower="dosiz",line_color=typecolor[dtype],line_alpha=0.6)
+            #w7.upper_head.line_color=typecolor[dtype]
+            #w7.lower_head.line_color=typecolor[dtype]
+            #self.s7.add_layout(w7)
+            c7l = self.s7.line(x='xvals',y='tmedsi',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.outcolor)
             c7 = self.s7.scatter(x='xvals',y='medsiz',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
             setattr(self,'{0}_c7'.format(dtype),c7)
-            setattr(self,'{0}_w7'.format(dtype),w7)
+            setattr(self,'{0}_c7l'.format(dtype),c7l)
+            #setattr(self,'{0}_w7'.format(dtype),w7)
         self.label_stat_xaxis(self.s7,dtype=self.dtype)
 
         # Dummy plot to generate the legend
@@ -1633,7 +1636,7 @@ button.button_type = 'warning';"""
             c4 = getattr(self,'{0}_c4'.format(dtype))
             c6 = getattr(self,'{0}_c6'.format(dtype))
             c7 = getattr(self,'{0}_c7'.format(dtype))
-            w7 = getattr(self,'{0}_w7'.format(dtype))
+            c7l = getattr(self,'{0}_c7l'.format(dtype))
             print(dir(w7))
 
             # Change source and update glyphs
@@ -1659,9 +1662,11 @@ button.button_type = 'warning';"""
             # Median cluster size
             c7.data_source.data = ss.data
             c7.glyph.y = 'medsiz'
-            w7.source.data = ss.data
-            w7.upper = 'upsiz'
-            w7.lower = 'dosiz'
+            c1l.data_source.data = ss.data
+            c1l.glyph.y = 'tmedsi'
+            #w7.source.data = ss.data
+            #w7.upper = 'upsiz'
+            #w7.lower = 'dosiz'
 
 
 if __name__ == '__main__':
