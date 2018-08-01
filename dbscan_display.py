@@ -87,7 +87,7 @@ def create_case_list(direc='.'):
     return cases
 
 def create_time_list(case,direc='.'):
-    timelist = glob.glob('{1}/case{0}*.hdf5'.format(case,direc))
+    timelist = glob.glob('{1}/case{0}_*.hdf5'.format(case,direc))
     times = np.array([i.split('_')[1].split('.hdf5')[0] for i in timelist])[::-1]
     return times
 
@@ -141,8 +141,6 @@ class read_results(object):
         # open the h5py file
         self.data = h5py.File('case{0}_{1}.hdf5'.format(self.case,
                                                         self.timestamp),'r+')
-        # set the upper limit when plotting the number of clusters
-        self.maxmem = 1
         # aquire defaults
         if case:
             self.case = case
@@ -246,6 +244,9 @@ class read_results(object):
 
         # Track what datatype we were using to start
         vintdtype = copy.deepcopy(self.dtype)
+
+        # set the upper limit when plotting the number of clusters
+        self.maxmem = 1
 
         # Create a master list of labels in case different datatypes 
         # had different parameters 
@@ -1537,6 +1538,17 @@ button.button_type = 'warning';"""
         self.selecttime = Select(title='timestamp',value=self.timestamp,options=list(times))
         self.selecttime.on_change('value',self.updatetime)
 
+        # Create toggle for data type visibility
+        # code = '''\
+        # object1.visible = toggle.active
+        # object2.visible = toggle.active
+        # object3.visible = toggle.active
+        # object4.visible = toggle.active
+        # '''
+        # glyphcb = CustomJS.from_coffeescript(code=code, args={})
+        # self.glyphvis = Toggle(label="One-to-one line", button_type="default", active=True,callback=linecb)
+        # glyphcb.args = {'toggle': self.glyphvis}
+
         # Create button to actually push results of new data to plot
         self.loadbutton = Button(label='I do nothing until you select new run info above', button_type='warning')
         self.sourcedict['button'] = self.loadbutton
@@ -1597,6 +1609,7 @@ button.button_type = 'warning';"""
             self.loadbutton.button_type='danger'
             self.loadbutton.label = 'No new data to load - try another file'
         elif not self.allbad:
+            self.minsize.title = "Minimum size - choose between 1 and {0}:".format(int(self.maxmem))
             # Get new average stats for this run
             self.generate_average_stats(minmem=int(self.minsize.value),update=True)
             # Update loadbutton behaviour with new callback arguments (i.e. self.sourcedict has the new data in it in the 'new...' keys)
@@ -1615,7 +1628,6 @@ button.button_type = 'warning';"""
         """
         # Find the minimum
         num = int(new)
-        self.minsize.title = "Minimum size - choose between 1 and {0}:".format(int(self.maxmem))
         # Recalculate averages - includes natural zeroing if datatype not present
         self.generate_average_stats(minmem=num,minlim=num)
         # Cycle through available data types  and update glyphs
