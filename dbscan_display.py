@@ -1473,10 +1473,11 @@ button.button_type = 'warning';"""
         for d,dtype in enumerate(self.alldtypes):
             dtype = nametypes[dtype]
             w7 = Whisker(source=getattr(self,'{0}_statsource'.format(dtype)), base="xvals", upper="upsiz", lower="dosiz",line_color=typecolor[dtype],line_alpha=0.6)
+            w7.upper_head.line_color = typecolor[dtype]
+            w7.lower_head.line_color = typecolor[dtype]
             self.s7.add_layout(w7)
             c7 = self.s7.scatter(x='xvals',y='medsiz',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
             setattr(self,'{0}_c7'.format(dtype),c7)
-            setattr(self,'{0}_w7'.format(dtype),w7)
         self.label_stat_xaxis(self.s7,dtype=self.dtype)
 
         # Dummy plot to generate the legend
