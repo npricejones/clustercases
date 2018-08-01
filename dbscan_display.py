@@ -25,6 +25,8 @@ from bokeh import events
 neighbours = 20
 
 
+jitterval = 0.2
+
 # tools to include on bokeh plot
 TOOLS="pan,wheel_zoom,box_zoom,box_select,lasso_select,reset"
 
@@ -259,7 +261,7 @@ class read_results(object):
         
         # create list of xvalues to find where ticks should be plotted
         xvals = np.arange(len(labmaster))
-        jitter = np.linspace(-0.1,0.1,len(list(nametypes.keys())))
+        jitter = np.linspace(-jitterval,jitterval,len(list(nametypes.keys())))
 
         # for each data type, create array to hold result of the runs
         for d,dtype in enumerate(list(nametypes.keys())):
