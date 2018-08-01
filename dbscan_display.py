@@ -14,7 +14,7 @@ import warnings
 from clustering_stats import *
 
 from bokeh.layouts import row, column, widgetbox
-from bokeh.models import BoxSelectTool, LassoSelectTool, Spacer,CustomJS, Legend
+from bokeh.models import BoxSelectTool, LassoSelectTool, Spacer,CustomJS, Legend,Whisker
 from bokeh.models.glyphs import Circle
 from bokeh.models.widgets import Toggle,RadioButtonGroup,AutocompleteInput,Tabs, Panel, Select, Button, TextInput
 from bokeh.plotting import figure, curdoc, ColumnDataSource, reset_output
@@ -309,12 +309,15 @@ class read_results(object):
             tnumc[tnumc < 1] = 0.01
             tmaxs[tmaxs < 1] = 0.01
             tmeds[tmeds < 1] = 0.01
+            upper = meds+stds
+            lower = meds-stds
+            lower[lower < 1] = 1
             # Create dictionary for plotting
             statsource = {'params':labmaster,'numc':numc,
                                'avgeff':effs,'avgcom':coms,
                                'avgfsi':fsil,'maxsiz':maxs,
                                'xvals':xvals,'medsiz':meds,
-                               'upsiz':meds+stds,'dosiz':meds-stds,
+                               'upsiz':upper,'dosiz':lower,
                                'tmaxs':tmaxs,'uptsi':tmeds+tstds,
                                'tmeds':tmeds,'dotsi':tmeds-tstds,
                                'tnumc':tnumc}
@@ -1469,8 +1472,8 @@ button.button_type = 'warning';"""
         self.s7.background_fill_color = self.bcolor
         for d,dtype in enumerate(self.alldtypes):
             dtype = nametypes[dtype]
-            self.w7 = Whisker(source=getattr(self,'{0}_statsource'.format(dtype)), base="medsiz", upper="upsiz", lower="dosiz")
-            self.s7.add_layout(self.w7)
+            w7 = Whisker(source=getattr(self,'{0}_statsource'.format(dtype)), base="xvals", upper="upsiz", lower="dosiz",line_color=typecolor[dtype],line_alpha=0.6)
+            self.s7.add_layout(w7)
             c7 = self.s7.scatter(x='xvals',y='medsiz',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
             setattr(self,'{0}_c7'.format(dtype),c7)
             setattr(self,'{0}_w7'.format(dtype),w7)
@@ -1648,7 +1651,6 @@ button.button_type = 'warning';"""
             c7.data_source.data = ss.data
             c7.glyph.y = 'medsiz'
             w7.data_source.data = ss.data
-            w7.glyph.base = 'medsiz'
             w7.glyph.upper = 'upsiz'
             w7.glyph.lower = 'dosiz'
 
