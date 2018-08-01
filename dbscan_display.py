@@ -259,6 +259,7 @@ class read_results(object):
         
         # create list of xvalues to find where ticks should be plotted
         xvals = np.arange(len(labmaster))
+        jitter = np.linspace(-0.1,0.1,len(list(nametypes.keys())))
 
         # for each data type, create array to hold result of the runs
         for d,dtype in enumerate(list(nametypes.keys())):
@@ -272,6 +273,7 @@ class read_results(object):
             meds = 0.01*np.ones(len(labmaster))
             stds = np.zeros(len(labmaster))
             maxs = 0.01*np.ones(len(labmaster))
+            txvals = xvals+jitter[d]
 
             if typenames[dtype] in self.alldtypes:
                 # Read in file data
@@ -292,7 +294,6 @@ class read_results(object):
                                 numc[match] = len(sizes[vals])
                                 meds[match] = np.median(sizes[vals])
                                 stds[match] = np.std(sizes[vals])
-                                print("I'm throwing")
                                 maxs[match] = np.max(sizes[vals])
                                 effs[match] = np.mean(self.eff[vals])
                                 coms[match] = np.mean(self.com[vals])
@@ -305,27 +306,18 @@ class read_results(object):
             self.maxmem = np.max([self.maxmem,tnumc[0]])
             try:
                 tmaxs = np.array([np.max(self.tsize[self.tsize>minmem])]*len(labmaster))
+                tmeds = np.array([np.median(self.tsize[self.tsize>minmem])]*len(labmaster))
+                tstds = np.array([np.std(self.tsize[self.tsize>minmem])]*len(labmaster))
             except ValueError:
                 tmaxs = np.array([0.01]*len(labmaster))
-            tmeds = np.array([np.median(self.tsize[self.tsize>minmem])]*len(labmaster))
-            tstds = np.array([np.std(self.tsize[self.tsize>minmem])]*len(labmaster))
+                tmeds = np.array([0.01]*len(labmaster))
             # If the true number of clusters above the limit is None, move out of plot range
             tnumc[tnumc < 1] = 0.01
-            tmaxs[tmaxs < 1] = 0.01
-            tmeds[tmeds < 1] = 0.01
-            tupper = tmeds + tstds
-            tlower = tmeds - tstds
-            upper = meds+stds
-            lower = meds-stds
-            lower[lower < minlim] = minlim
-            lower[meds==0.01] = 0.01
-            upper[meds==0.01] = 0.01
             # Create dictionary for plotting
             statsource = {'params':labmaster,'numc':numc,
                                'avgeff':effs,'avgcom':coms,
                                'avgfsi':fsil,'maxsiz':maxs,
-                               'xvals':xvals,'medsiz':meds,
-                               'upsiz':upper,'dosiz':lower,
+                               'xvals':txvals,'medsiz':meds,
                                'tmaxs':tmaxs,'tmeds':tmeds,
                                'tnumc':tnumc}
             # Add ColumnDataSource object to class
@@ -1401,7 +1393,7 @@ button.button_type = 'warning';"""
         """
 
         # Number of clusters found
-        self.s1 = figure(plot_width=300,plot_height=250,min_border=10,
+        self.s1 = figure(plot_width=400,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='log',
                          toolbar_location=None,
@@ -1410,14 +1402,14 @@ button.button_type = 'warning';"""
         self.s1.background_fill_color = self.bcolor
         for d,dtype in enumerate(self.alldtypes):
             dtype = nametypes[dtype]
+            c1l = self.s1.line(x='xvals',y='tnumc',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.outcolor,alpha=0.1)
             c1 = self.s1.scatter(x='xvals',y='numc',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
             setattr(self,'{0}_c1'.format(dtype),c1)
-            c1l = self.s1.line(x='xvals',y='tnumc',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.outcolor)
             setattr(self,'{0}_c1l'.format(dtype),c1l)
         self.label_stat_xaxis(self.s1,dtype=self.dtype)
 
         # Average efficiency
-        self.s2 = figure(plot_width=300,plot_height=250,min_border=10,
+        self.s2 = figure(plot_width=400,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='linear',
                          toolbar_location=None,
@@ -1430,7 +1422,7 @@ button.button_type = 'warning';"""
         self.label_stat_xaxis(self.s2,dtype=self.dtype)
 
         # Average completeness
-        self.s3 = figure(plot_width=300,plot_height=250,min_border=10,
+        self.s3 = figure(plot_width=400,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='linear',
                          toolbar_location=None,
@@ -1443,7 +1435,7 @@ button.button_type = 'warning';"""
         self.label_stat_xaxis(self.s3,dtype=self.dtype)
 
         # Average silhouette coefficient
-        self.s4 = figure(plot_width=300,plot_height=250,min_border=10,
+        self.s4 = figure(plot_width=400,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='linear',
                          toolbar_location=None,
@@ -1456,7 +1448,7 @@ button.button_type = 'warning';"""
         self.label_stat_xaxis(self.s4,dtype=self.dtype)
 
         # Max cluster sizes
-        self.s6 = figure(plot_width=300,plot_height=250,min_border=10,
+        self.s6 = figure(plot_width=400,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='log',
                          toolbar_location=None,
@@ -1465,12 +1457,14 @@ button.button_type = 'warning';"""
         self.s6.background_fill_color = self.bcolor
         for d,dtype in enumerate(self.alldtypes):
             dtype = nametypes[dtype]
+            c6l = self.s6.line(x='xvals',y='tmaxs',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.outcolor,alpha=0.1)
             c6 = self.s6.scatter(x='xvals',y='maxsiz',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
             setattr(self,'{0}_c6'.format(dtype),c6)
+            setattr(self,'{0}_c6l'.format(dtype),c6l)
         self.label_stat_xaxis(self.s6,dtype=self.dtype)
 
         # Median cluster sizes
-        self.s7 = figure(plot_width=300,plot_height=250,min_border=10,
+        self.s7 = figure(plot_width=400,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='log',
                          toolbar_location=None,
@@ -1479,15 +1473,10 @@ button.button_type = 'warning';"""
         self.s7.background_fill_color = self.bcolor
         for d,dtype in enumerate(self.alldtypes):
             dtype = nametypes[dtype]
-            #w7 = Whisker(source=getattr(self,'{0}_statsource'.format(dtype)), base="xvals", upper="upsiz", lower="dosiz",line_color=typecolor[dtype],line_alpha=0.6)
-            #w7.upper_head.line_color=typecolor[dtype]
-            #w7.lower_head.line_color=typecolor[dtype]
-            #self.s7.add_layout(w7)
-            c7l = self.s7.line(x='xvals',y='tmedsi',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.outcolor)
+            c7l = self.s7.line(x='xvals',y='tmeds',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.outcolor,alpha=0.1)
             c7 = self.s7.scatter(x='xvals',y='medsiz',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
             setattr(self,'{0}_c7'.format(dtype),c7)
             setattr(self,'{0}_c7l'.format(dtype),c7l)
-            #setattr(self,'{0}_w7'.format(dtype),w7)
         self.label_stat_xaxis(self.s7,dtype=self.dtype)
 
         # Dummy plot to generate the legend
@@ -1635,9 +1624,9 @@ button.button_type = 'warning';"""
             c3 = getattr(self,'{0}_c3'.format(dtype))
             c4 = getattr(self,'{0}_c4'.format(dtype))
             c6 = getattr(self,'{0}_c6'.format(dtype))
+            c6l = getattr(self,'{0}_c6l'.format(dtype))
             c7 = getattr(self,'{0}_c7'.format(dtype))
             c7l = getattr(self,'{0}_c7l'.format(dtype))
-            print(dir(w7))
 
             # Change source and update glyphs
 
@@ -1659,11 +1648,13 @@ button.button_type = 'warning';"""
             # Max cluster size
             c6.data_source.data = ss.data
             c6.glyph.y = 'maxsiz'
+            c6l.data_source.data = ss.data
+            c6l.glyph.y = 'tmaxs'
             # Median cluster size
             c7.data_source.data = ss.data
             c7.glyph.y = 'medsiz'
-            c1l.data_source.data = ss.data
-            c1l.glyph.y = 'tmedsi'
+            c7l.data_source.data = ss.data
+            c7l.glyph.y = 'tmeds'
             #w7.source.data = ss.data
             #w7.upper = 'upsiz'
             #w7.lower = 'dosiz'
