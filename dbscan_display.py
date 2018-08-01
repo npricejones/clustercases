@@ -39,10 +39,10 @@ resultpath = os.getenv('CLUSTERCASES', cwd)
 typenames = {'spec':'spectra','abun':'abundances','reda':'reduced abundances','toph':'tophat windows','wind':'windows','prin':'principal components'}
 nametypes = {'spectra':'spec','abundances':'abun','reduced abundances':'reda','tophat windows':'toph','windows':'wind','principal components':'prin'}
 
-#             orange     purple     blue        red       green     dark green
-colorlist = ["#F98D20", "#904C77", "#79ADDC", "#ED6A5A", "#B1EF73","#6CAE75"] 
+#             orange     purple     blue        red       green     pink
+colorlist = ["#F98D20", "#904C77", "#79ADDC", "#ED6A5A", "#B1EF73","#EF518B"] 
 
-typecolor = {'spec':"#F98D20",'abun':"#904C77",'reda':"#6CAE75",'toph':"#79ADDC",'wind':"#ED6A5A",'prin':"#B1EF73"}
+typecolor = {'spec':"#F98D20",'abun':"#904C77",'reda':"#EF518B",'toph':"#79ADDC",'wind':"#ED6A5A",'prin':"#B1EF73"}
 
 zp = {'Efficiency':5e-3,'Completeness':5e-3,'Found Silhouette':5e-3,'Matched Silhouette':5e-3,'Found Size':0.5,'Matched Size':0.5}
 lzp=1e-3
