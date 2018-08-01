@@ -231,7 +231,7 @@ class read_results(object):
             self.ticklabels.append('{0}, {1}'.format(self.eps[i],self.min_samples[i]))
         self.paramlist = list(np.array(self.paramchoices)[self.goodinds])
 
-    def generate_average_stats(self,minmem=1,update=False):
+    def generate_average_stats(self,minmem=1,update=False,minlim=1):
         """
         Find average properties across all data types in a run
 
@@ -292,6 +292,7 @@ class read_results(object):
                                 numc[match] = len(sizes[vals])
                                 meds[match] = np.median(sizes[vals])
                                 stds[match] = np.std(sizes[vals])
+                                print("I'm throwing")
                                 maxs[match] = np.max(sizes[vals])
                                 effs[match] = np.mean(self.eff[vals])
                                 coms[match] = np.mean(self.com[vals])
@@ -302,7 +303,10 @@ class read_results(object):
             # Calculate the true number of clusters above a given limit
             tnumc = np.array([len(self.tsize[self.tsize>minmem])]*len(labmaster))
             self.maxmem = np.max([self.maxmem,tnumc[0]])
-            tmaxs = np.array([np.max(self.tsize[self.tsize>minmem])]*len(labmaster))
+            try:
+                tmaxs = np.array([np.max(self.tsize[self.tsize>minmem])]*len(labmaster))
+            except ValueError:
+                tmaxs = np.array([0.01]*len(labmaster))
             tmeds = np.array([np.median(self.tsize[self.tsize>minmem])]*len(labmaster))
             tstds = np.array([np.std(self.tsize[self.tsize>minmem])]*len(labmaster))
             # If the true number of clusters above the limit is None, move out of plot range
@@ -311,7 +315,9 @@ class read_results(object):
             tmeds[tmeds < 1] = 0.01
             upper = meds+stds
             lower = meds-stds
-            lower[lower < 1] = 1
+            lower[lower < minlim] = minlim
+            lower[meds==0.01] = 0.01
+            upper[meds==0.01] = 0.01
             # Create dictionary for plotting
             statsource = {'params':labmaster,'numc':numc,
                                'avgeff':effs,'avgcom':coms,
@@ -1473,6 +1479,8 @@ button.button_type = 'warning';"""
         for d,dtype in enumerate(self.alldtypes):
             dtype = nametypes[dtype]
             w7 = Whisker(source=getattr(self,'{0}_statsource'.format(dtype)), base="xvals", upper="upsiz", lower="dosiz",line_color=typecolor[dtype],line_alpha=0.6)
+            w7.upper_head.line_color=typecolor[dtype]
+            w7.lower_head.line_color=typecolor[dtype]
             self.s7.add_layout(w7)
             c7 = self.s7.scatter(x='xvals',y='medsiz',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
             setattr(self,'{0}_c7'.format(dtype),c7)
@@ -1612,7 +1620,7 @@ button.button_type = 'warning';"""
         # Find the minimum
         num = int(new)
         # Recalculate averages - includes natural zeroing if datatype not present
-        self.generate_average_stats(minmem=num)
+        self.generate_average_stats(minmem=num,minlim=num)
         # Cycle through available data types  and update glyphs
         for dtype in self.alldtypes:
             dtype = nametypes[dtype]
@@ -1626,6 +1634,7 @@ button.button_type = 'warning';"""
             c6 = getattr(self,'{0}_c6'.format(dtype))
             c7 = getattr(self,'{0}_c7'.format(dtype))
             w7 = getattr(self,'{0}_w7'.format(dtype))
+            print(dir(w7))
 
             # Change source and update glyphs
 
@@ -1650,9 +1659,9 @@ button.button_type = 'warning';"""
             # Median cluster size
             c7.data_source.data = ss.data
             c7.glyph.y = 'medsiz'
-            w7.data_source.data = ss.data
-            w7.glyph.upper = 'upsiz'
-            w7.glyph.lower = 'dosiz'
+            w7.source.data = ss.data
+            w7.upper = 'upsiz'
+            w7.lower = 'dosiz'
 
 
 if __name__ == '__main__':
