@@ -314,8 +314,9 @@ class read_results(object):
                                'avgeff':effs,'avgcom':coms,
                                'avgfsi':fsil,'maxsiz':maxs,
                                'xvals':xvals,'medsiz':meds,
-                               'stdsiz':stds,'tmaxs':tmaxs,
-                               'tmeds':tmeds,'tstds':tstds,
+                               'upsiz':meds+stds,'dosiz':meds-stds,
+                               'tmaxs':tmaxs,'uptsi':tmeds+tstds,
+                               'tmeds':tmeds,'dotsi':tmeds-tstds,
                                'tnumc':tnumc}
             # Add ColumnDataSource object to class
             setattr(self,'{0}_statsource'.format(dtype),ColumnDataSource(statsource))
@@ -1468,8 +1469,11 @@ button.button_type = 'warning';"""
         self.s7.background_fill_color = self.bcolor
         for d,dtype in enumerate(self.alldtypes):
             dtype = nametypes[dtype]
+            self.w7 = Whisker(source=getattr(self,'{0}_statsource'.format(dtype)), base="medsiz", upper="upsiz", lower="dosiz")
+            self.s7.add_layout(self.w7)
             c7 = self.s7.scatter(x='xvals',y='medsiz',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
             setattr(self,'{0}_c7'.format(dtype),c7)
+            setattr(self,'{0}_w7'.format(dtype),w7)
         self.label_stat_xaxis(self.s7,dtype=self.dtype)
 
         # Dummy plot to generate the legend
@@ -1618,6 +1622,7 @@ button.button_type = 'warning';"""
             c4 = getattr(self,'{0}_c4'.format(dtype))
             c6 = getattr(self,'{0}_c6'.format(dtype))
             c7 = getattr(self,'{0}_c7'.format(dtype))
+            w7 = getattr(self,'{0}_w7'.format(dtype))
 
             # Change source and update glyphs
 
@@ -1642,6 +1647,11 @@ button.button_type = 'warning';"""
             # Median cluster size
             c7.data_source.data = ss.data
             c7.glyph.y = 'medsiz'
+            w7.data_source.data = ss.data
+            w7.glyph.base = 'medsiz'
+            w7.glyph.upper = 'upsiz'
+            w7.glyph.lower = 'dosiz'
+
 
 if __name__ == '__main__':
     singlerun = display_single(case='8',timestamp='2018-07-25.12.13.55.213653',datatype='spec',pad=0.1)
