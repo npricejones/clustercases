@@ -265,13 +265,13 @@ class read_results(object):
             dtype = nametypes[dtype]
 
             # Initialize arrays
-            effs = np.zeros(len(labmaster))
-            coms = np.zeros(len(labmaster))
-            fsil = -np.ones(len(labmaster))
+            effs = -np.ones(len(labmaster))
+            coms = -np.ones(len(labmaster))
+            fsil = -2*np.ones(len(labmaster))
             numc = 0.01*np.ones(len(labmaster))
-            meds = np.ones(len(labmaster))
+            meds = 0.01*np.ones(len(labmaster))
             stds = np.zeros(len(labmaster))
-            maxs = np.ones(len(labmaster))
+            maxs = 0.01*np.ones(len(labmaster))
 
             if typenames[dtype] in self.alldtypes:
                 # Read in file data
@@ -299,13 +299,6 @@ class read_results(object):
                             self.maxmem = np.max([self.maxmem,np.max(numc)])
                     except KeyError:
                         pass
-            # If datatypes do not exist, move points out of summary plot range
-            if typenames[dtype] not in self.alldtypes:
-                effs -= 1
-                coms -= 1
-                fsil -= 1
-                meds *= 0.01
-                maxs *= 0.01
             # Calculate the true number of clusters above a given limit
             tnumc = np.array([len(self.tsize[self.tsize>minmem])]*len(labmaster))
             self.maxmem = np.max([self.maxmem,tnumc[0]])
