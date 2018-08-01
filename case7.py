@@ -51,5 +51,5 @@ case.clustering(case.projectspec,'prin',eps,min_samples,metric='precomputed',
                  neighbours = 20,normeps=normeps)
 
 end = time.time()
-case8.finish()
+case.finish()
 print('Finished desired clustering in {0} seconds'.format(end-start))

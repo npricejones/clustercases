@@ -311,7 +311,7 @@ class read_results(object):
             self.maxmem = np.max([self.maxmem,tnumc[0]])
             tmaxs = np.array([np.max(self.tsize[self.tsize>minmem])]*len(labmaster))
             tmeds = np.array([np.median(self.tsize[self.tsize>minmem])]*len(labmaster))
-            tstds = np.array([np.stds(self.tsize[self.tsize>minmem])]*len(labmaster))
+            tstds = np.array([np.std(self.tsize[self.tsize>minmem])]*len(labmaster))
             # If the true number of clusters above the limit is None, move out of plot range
             tnumc[tnumc < 1] = 0.01
             tmaxs[tmaxs < 1] = 0.01
@@ -322,7 +322,7 @@ class read_results(object):
                                'avgfsi':fsil,'maxsiz':maxs,
                                'xvals':xvals,'medsiz':meds,
                                'stdsiz':stds,'tmaxs':tmaxs,
-                               'tmeds':tmeds,'tstds':tstds
+                               'tmeds':tmeds,'tstds':tstds,
                                'tnumc':tnumc}
             # Add ColumnDataSource object to class
             setattr(self,'{0}_statsource'.format(dtype),ColumnDataSource(statsource))
