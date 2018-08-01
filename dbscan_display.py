@@ -1454,9 +1454,10 @@ button.button_type = 'warning';"""
         # Max cluster sizes
         self.s6 = figure(plot_width=300,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
-                         x_axis_type='linear',y_axis_type='linear',
+                         x_axis_type='linear',y_axis_type='log',
                          toolbar_location=None,
-                         y_range=(-1.06,1.06),y_axis_label='Max cluster size')
+                         y_axis_label='Max cluster size')
+        self.s6.y_range.start = 0.5
         self.s6.background_fill_color = self.bcolor
         for d,dtype in enumerate(self.alldtypes):
             dtype = nametypes[dtype]
@@ -1467,9 +1468,10 @@ button.button_type = 'warning';"""
         # Median cluster sizes
         self.s7 = figure(plot_width=300,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
-                         x_axis_type='linear',y_axis_type='linear',
+                         x_axis_type='linear',y_axis_type='log',
                          toolbar_location=None,
-                         y_range=(-1.06,1.06),y_axis_label='Max cluster size')
+                         y_axis_label='Median cluster size')
+        self.s7.y_range.start = 0.5
         self.s7.background_fill_color = self.bcolor
         for d,dtype in enumerate(self.alldtypes):
             dtype = nametypes[dtype]
