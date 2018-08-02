@@ -1518,6 +1518,31 @@ button.button_type = 'warning';"""
         plot.xaxis.major_label_overrides = overrides 
         plot.xaxis.major_label_orientation = np.pi/4
 
+    def hidedata(self,attr,old,new):
+        for dtype in self.alldtypes:
+            ind = list(self.alldtypes).index(dtype)
+            dtype = nametypes[dtype]
+            c1 = getattr(self,'{0}_c1'.format(dtype))
+            c2 = getattr(self,'{0}_c2'.format(dtype))
+            c3 = getattr(self,'{0}_c3'.format(dtype))
+            c4 = getattr(self,'{0}_c4'.format(dtype))
+            c6 = getattr(self,'{0}_c6'.format(dtype))
+            c7 = getattr(self,'{0}_c7'.format(dtype))
+            if ind not in new:
+                c1.visible = False
+                c2.visible = False
+                c3.visible = False
+                c4.visible = False
+                c6.visible = False
+                c7.visible = False
+            elif ind in new:
+                c1.visible = True
+                c2.visible = True
+                c3.visible = True
+                c4.visible = True
+                c6.visible = True
+                c7.visible = True
+
     def buttons(self):
         """
         Creates buttons that manipulate the plots
@@ -1530,17 +1555,13 @@ button.button_type = 'warning';"""
         self.minsize = TextInput(value="1", title="Minimum size - choose between 1 and {0}:".format(int(self.maxmem)))
         self.minsize.on_change('value',self.updatestatplot)
 
-        self.activedtype = CheckboxGroup(labels=list(self.alldtypes), active=list(np.arange(len(self.alldtypes))))
-        # # Create toggle for one-to-one visibility
-        # code = '''\
-        # object1.visible = toggle.active
-        # object2.visible = toggle.active
-        # object3.visible = toggle.active
-        # object4.visible = toggle.active
-        # '''
-        # linecb = CustomJS.from_coffeescript(code=code, args={})
-        # self.toggleline = Toggle(label="One-to-one line", button_type="default", active=True,callback=linecb)
-        # linecb.args = {'toggle': self.toggleline, 'object1': self.l1, 'object2': self.l2, 'object3': self.l3, 'object4': self.l4}
+        activeinds = np.where((np.array(self.alldtypes)=='spectra') | (np.array(self.alldtypes) == 'abundances'))
+        print('active',activeinds,self.alldtypes)
+        self.activedtype = CheckboxGroup(labels=self.alldtypes, 
+                                         active=list(np.arange(len(self.alldtypes))[activeinds]))
+
+        self.hidedata('active',[1],self.activedtype.active)
+        self.activedtype.on_change('active',self.hidedata)
 
         # Create drop down menu for possible cases
         self.selectcase = Select(title='case',value=self.case,options=list(cases))
@@ -1549,17 +1570,6 @@ button.button_type = 'warning';"""
         # Create drop down menu for possible timestamps
         self.selecttime = Select(title='timestamp',value=self.timestamp,options=list(times))
         self.selecttime.on_change('value',self.updatetime)
-
-        # Create toggle for data type visibility
-        # code = '''\
-        # object1.visible = toggle.active
-        # object2.visible = toggle.active
-        # object3.visible = toggle.active
-        # object4.visible = toggle.active
-        # '''
-        # glyphcb = CustomJS.from_coffeescript(code=code, args={})
-        # self.glyphvis = Toggle(label="One-to-one line", button_type="default", active=True,callback=linecb)
-        # glyphcb.args = {'toggle': self.glyphvis}
 
         # Create button to actually push results of new data to plot
         self.loadbutton = Button(label='I do nothing until you select new run info above', button_type='warning')
