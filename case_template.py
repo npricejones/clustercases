@@ -19,6 +19,7 @@ from sklearn.cluster import DBSCAN, MiniBatchKMeans
 from sklearn.metrics import silhouette_score
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.preprocessing import PolynomialFeatures
+from sklearn.decomposition import PCA
 from clustering_stats import *
 
 # THEORETICAL INTRA CLUSTER SPREAD AT SNR=100                                                                                             
@@ -66,24 +67,39 @@ spreads = np.array([ch_cls,nh_cls,oh_cls,nah_cls,mgh_cls,alh_cls,sih_cls,sh_cls,
                     cah_cls,tih_cls,vh_cls,mnh_cls,nih_cls,feh_cls])
 
 elem = ['C','N','O','Na','Mg','Al','Si','S','K','Ca','Ti','V','Fe','Ni']
+combelem = ['Na','Mg','Al','Si','S','K','Ca','Ti','V','Ni']
+
+eigdata = np.load('eig20_minSNR50_corrNone_meanMed.pkl_data.npz')
+eigvecs = eigdata['eigvec']
+eigvals = eigdata['eigval']
+
 
 tophats = np.load('tophat_elems.npy')
 windows = np.load('window_elems.npy')
+normeps = True
 
-def combine_windows(windows = tophats,combelem=elem):
+def abuninds(elems,combelem):
+    inds = []
+    for e,elem in enumerate(elems):
+        if elem in combelem:
+            inds.append(e)
+    return np.array(inds)
+
+def combine_windows(windows = tophats,combelem=elem,func=np.ma.mean):
     """
     Combine windows from various elements into a single spectrum
     for dot product with spectrum.
 
     windows:    set of windows to use (tophats or actual windows)
     combelem:   list of elements to combine
+    func:       function to use when combining the windows
 
     Returns spectrum   
     """
-
+    windows = windows[abuninds(elem,combelem)]
     mask = windows == 0
     windows = np.ma.masked_array(windows,mask=mask)
-    combspec = np.ma.mean(windows,axis=0)
+    combspec = func(windows,axis=0)
     return combspec.data
 
 
@@ -307,12 +323,27 @@ class caserun(object):
         tcount,tlabs = membercount(self.labels_true)
         self.plot['true_size'] = tcount
 
-    def projspec(self,arr):
+    def reduction(self,reduct=PCA,**kwargs):
+        red = reduct(**kwargs)
+        self.projspec = red.fit_transform(self.specinfo.spectra)
+
+
+    def projspec(self,arr,eigvals=None):
         if isinstance(arr,list):
             arr = np.array(arr)
         if isinstance(arr,np.ndarray):
             if len(arr.shape) == 1:
-                self.projectspec = np.dot(arr,self.specinfo.spectra)
+                arr = np.tile(arr,(self.mem,1))
+                self.projectspec = arr*self.specinfo.spectra
+            elif len(arr.shape) == 2:
+                self.projspec = np.zeros(self.specinfo.spectra.shape)
+                for a,r in arr:
+                    if isinstance(eigvals,(list,np.ndarray)):
+                        e = eigvals[a]
+                    else:
+                        e = 1
+                    vec = np.tile(r,(self.mem,1))
+                    self.projspec += e*vec*self.specinfo.spectra
 
     def clustering(self,arr,name,eps,min_samples,metric='precomputed',neighbours = 20,normeps=False):
 
@@ -375,25 +406,29 @@ class caserun(object):
             cbn[i][noise] = -1
             noise = np.where(db.labels_==-1)
             end = time.time()
-            print('Done DBSCAN {0} of {1} with eps {2} and min neighbours {3} on {4} - {5} seconds'.format(i+1,len(seps),seps[i],smin_samples[i],name,np.round(end-start,2)))
+            print('Done DBSCAN {0} of {1} with eps {2} and min neighbours {3} on {4} - {5} seconds'.format(i+1,len(eps),eps[i],min_samples[i],name,np.round(end-start,2)))
             print('I found {0} out of {1} clusters'.format(len(plabs),self.numc)) 
         self.plot['{0}_labels_pred'.format(name)] = labels_pred
         self.plot['{0}_cbn'.format(name)] = cbn
 
-    def finish(self)
+    def finish(self):
         self.plot.close()
         print('I saved everything in {0}'.format(self.pfname))
 
 if __name__=='__main__':
     case7 = caserun()
     start = time.time()
-    self.clustering(case7.specinfo.spectra,'spec',eps,min_samples,metric='precomputed',
+    case7.clustering(case7.specinfo.spectra,'spec',eps,min_samples,metric='precomputed',
                     neighbours = 20,normeps=normeps)
-    self.clustering(case7.abundances,'abun',eps,min_samples,metric='precomputed',
+    case7.clustering(case7.abundances,'abun',eps,min_samples,metric='precomputed',
                     neighbours = 20,normeps=normeps)
-    wind = combine_windows(windows = tophats,combelem=elem)
-    self.projspec(wind)
-    self.clustering(case7.projectspec,'wind',eps,min_samples,metric='precomputed',
+    toph = combine_windows(windows = tophats,combelem=combelem,func=np.ma.any)
+    case7.projspec(toph)
+    case7.clustering(case7.projectspec,'toph',eps,min_samples,metric='precomputed',
+                    neighbours = 20,normeps=normeps)
+    case7.reduction(reduct = PCA, n_components=10)
+    case7.clustering(case7.projectspec,'prin',eps,min_samples,metric='precomputed',
                     neighbours = 20,normeps=normeps)
     end = time.time()
+    case7.finish()
     print('Finished desired clustering in {0} seconds'.format(end-start))

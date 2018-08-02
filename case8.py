@@ -1,11 +1,11 @@
 from case_template import *
 
 # run parameters                                                               
-nstars = 1e4 # number of stars                                                 
+nstars = 4e4 # number of stars                                                 
 sample='allStar_chemscrub.npy' # APOGEE sample to draw from                    
 abundancefac = 1 # scaling factor for abundance noise                          
 specfac = 0.01 # scaling factor for spectra noise                              
-centerfac = 2
+centerfac = 1
 suff = 'H' # element denominator                                               
 metric = 'precomputed' # metric for distances                                  
 fullfitkeys = ['TEFF','LOGG'] # keys for the full fit                          
@@ -25,21 +25,32 @@ eps = np.array([0.07,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0])
 min_samples = np.tile(min_samples,len(eps))
 eps = np.repeat(eps,samples)
 
-case8 = caserun(nstars=nstars,sample=sample,abundancefac=abundancefac,
+case = caserun(nstars=nstars,sample=sample,abundancefac=abundancefac,
                  spreadchoice=spreadchoice,specfac=specfac,centerfac=centerfac,
                  centerspr=spreads,genfn=choosestruct,
                  fullfitkeys=fullfitkeys,fullfitatms=fullfitatms,
                  crossfitkeys=crossfitkeys,crossfitatms=crossfitatms,
                  phvary=True,fitspec=True,case='8')
 start = time.time()
-case8.clustering(case8.specinfo.spectra,'spec',eps,min_samples,metric='precomputed',
+case.clustering(case.specinfo.spectra,'spec',eps,min_samples,metric='precomputed',
                 neighbours = 20,normeps=normeps)
-case8.clustering(case8.abundances,'abun',eps,min_samples,metric='precomputed',
+case.clustering(case.abundances,'abun',eps,min_samples,metric='precomputed',
                 neighbours = 20,normeps=normeps)
-toph = combine_windows(windows = tophats,combelem=elem)
-case8.projspec(toph)
-case8.clustering(case8.projectspec,'toph',eps,min_samples,metric='precomputed',
+case.clustering((case.abundances.T[abuninds(elem,combelem)]).T,'reda',eps,min_samples,metric='precomputed',
                 neighbours = 20,normeps=normeps)
+toph = combine_windows(windows = tophats,combelem=elem,func=np.ma.any)
+case.projspec(toph)
+case.clustering(case.projectspec,'toph',eps,min_samples,metric='precomputed',
+                neighbours = 20,normeps=normeps)
+wind = combine_windows(windows = windows,combelem=combelem,func=np.ma.max)
+case.projspec(wind)
+case.clustering(case.projectspec,'wind',eps,min_samples,metric='precomputed',
+                neighbours = 20,normeps=normeps)
+case.reduction(reduct = PCA, n_components=10)
+case.clustering(case.projectspec,'prin',eps,min_samples,metric='precomputed',
+                 neighbours = 20,normeps=normeps)
+
 end = time.time()
-case8.finish()
+case.finish()
+
 print('Finished desired clustering in {0} seconds'.format(end-start))
