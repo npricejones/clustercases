@@ -1,8 +1,8 @@
-''' Present a scatter plot with linked histograms on both axes.
+''' 
 Use the ``bokeh serve`` command to run the example by executing:
-    bokeh serve selection_histogram.py
+    bokeh serve dbscan_display.py
 at your command prompt. Then navigate to the URL
-    http://localhost:5006/selection_histogram
+    http://localhost:5006/dbscan_display.py
 in your browser.
 '''
 import os
@@ -276,6 +276,7 @@ class read_results(object):
             meds = 0.01*np.ones(len(labmaster))
             stds = np.zeros(len(labmaster))
             maxs = 0.01*np.ones(len(labmaster))
+            ffrc = np.zeros(len(labmaster))
             txvals = xvals+jitter[d]
 
             if typenames[dtype] in self.alldtypes:
@@ -301,6 +302,7 @@ class read_results(object):
                                 effs[match] = np.mean(self.eff[vals])
                                 coms[match] = np.mean(self.com[vals])
                                 fsil[match] = np.mean(self.fsil[vals])
+                                ffrc[match] = self.found_frac()
                             self.maxmem = np.max([self.maxmem,np.max(numc)])
                     except KeyError:
                         pass
@@ -336,6 +338,40 @@ class read_results(object):
         self.dtype = vintdtype
         self.read_dtype_data()
         self.read_run_data(eps=self.epsval,min_sample=self.minval,update=False)
+
+    def found_frac(self,testnum=10,testsize=10,testeff=0.8,testcom=0.8):
+        """
+        For a random selection of true clusters, calculate how many are found accurately by the algorithm
+
+        testnum:        number of true clusters to randomly select
+        testsize:       minimum true cluster size
+        testeff:        minimum efficiency value to be considered a good match
+        testcom:        minimum completeness value to be considered a good match
+        """
+        if 'testnum' not in dir(self):
+            self.testnum = testnum
+        if 'testsize' not in dir(self):
+            self.testsize = testsize
+        if 'testeff' not in dir(self):
+            self.testeff = testeff
+        if 'testcom' not in dir(self):
+            self.testcom = testcom
+        matched = 0
+        # find all true clusters above the size limit
+        sizes = self.tsize[self.tsize>self.testsize]
+        # pick the clusters randomly
+        inds = np.random.randint(low=0,high=len(sizes),size=self.testnum)
+        for i,size in enumrate(sizes[inds]):
+            if i in self.matchtlabs:
+                # find inds of all clusters matched to this one
+                matches = np.where(self.matchtlabs == i) 
+                # find efficiencies and completeness for these clusters
+                effs = self.efficiency[matches]
+                coms = self.completeness[matches]
+                # find out if any matches are good enough
+                if np.any(effs>=self.testeff) and np.any(coms>=self.testcom):
+                    matched+=1
+        return float(matched)/testnum
 
     def read_run_data(self,eps=None,min_sample=None,update=False,datatype=None):
         """
@@ -1372,6 +1408,9 @@ button.button_type = 'warning';"""
                              widgetbox(self.selecttime,width=320,height=30),
                              widgetbox(self.loadbutton,width=320,height=30),
                              widgetbox(self.minsize,width=320,height=30),
+                             widgetbox(self.testnum,width=320),
+                             widgetbox(self.testeff,width=320),
+                             widgetbox(self.testcom,width=320),
                              widgetbox(self.activedtype,width=320),
                              self.s5)
             avgplots = row(column(self.s1,
@@ -1555,13 +1594,23 @@ button.button_type = 'warning';"""
         self.minsize = TextInput(value="1", title="Minimum size - choose between 1 and {0}:".format(int(self.maxmem)))
         self.minsize.on_change('value',self.updatestatplot)
 
+        # Choose visible glyphs - spectra and abundances by default
         activeinds = np.where((np.array(self.alldtypes)=='spectra') | (np.array(self.alldtypes) == 'abundances'))
         print('active',activeinds,self.alldtypes)
         self.activedtype = CheckboxGroup(labels=self.alldtypes, 
                                          active=list(np.arange(len(self.alldtypes))[activeinds]))
-
         self.hidedata('active',[1],self.activedtype.active)
         self.activedtype.on_change('active',self.hidedata)
+
+        # Choose number of clusters to test
+        self.testnum = TextInput(value="10", title="Number of true clusters to test, choose between 1 and {0}:".format(len(self.tsize)))
+        #self.testnum.on_change('value',AFUN)
+
+        # Choose minimum efficiency for successful fit
+        self.testeff = TextInput(value="0.8", title="Minimum efficiency for found fraction, choose between 0 and 1:")
+
+        # Choose minimum completeness for successful fit
+        self.testcom = TextInput(value="0.8", title="Minimum completeness for found fraction, choose between 0 and 1:")
 
         # Create drop down menu for possible cases
         self.selectcase = Select(title='case',value=self.case,options=list(cases))
