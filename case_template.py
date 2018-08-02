@@ -325,7 +325,7 @@ class caserun(object):
 
     def reduction(self,reduct=PCA,**kwargs):
         red = reduct(**kwargs)
-        self.projspec = red.fit_transform(self.specinfo.spectra)
+        self.projectspec = red.fit_transform(self.specinfo.spectra)
 
 
     def projspec(self,arr,eigvals=None):
@@ -343,7 +343,7 @@ class caserun(object):
                     else:
                         e = 1
                     vec = np.tile(r,(self.mem,1))
-                    self.projspec += e*vec*self.specinfo.spectra
+                    self.projectspec += e*vec*self.specinfo.spectra
 
     def clustering(self,arr,name,eps,min_samples,metric='precomputed',neighbours = 20,normeps=False):
 

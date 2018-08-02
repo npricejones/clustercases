@@ -1,7 +1,7 @@
 from case_template import *
 
 # run parameters                                                               
-nstars = 4e4 # number of stars                                                 
+nstars = 1e4 # number of stars                                                 
 sample='allStar_chemscrub_teffcut.npy' # APOGEE sample to draw from                    
 abundancefac = 1 # scaling factor for abundance noise                          
 specfac = 0.01 # scaling factor for spectra noise                              
