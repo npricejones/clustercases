@@ -384,8 +384,8 @@ class distance_metrics(object):
                 elif n!=1:
                     nonmembers = np.append(nonmembers,self.spectra[meminds],axis=0)
             memdist = euclidean_distances(members,members)
-            # This needs to expunge the member pairwise distances
             nonmemdist = euclidean_distances(members,nonmembers)
+
             stintra = np.median(memdist)
             exintra = np.max(memdist)
             stinter = np.median(nonmemdist)
