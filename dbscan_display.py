@@ -361,13 +361,13 @@ class read_results(object):
         sizes = self.tsize[self.tsize>self.testsize]
         # pick the clusters randomly
         inds = np.random.randint(low=0,high=len(sizes),size=self.testnum)
-        for i,size in enumrate(sizes[inds]):
+        for i,size in enumerate(sizes[inds]):
             if i in self.matchtlabs:
                 # find inds of all clusters matched to this one
                 matches = np.where(self.matchtlabs == i) 
                 # find efficiencies and completeness for these clusters
-                effs = self.efficiency[matches]
-                coms = self.completeness[matches]
+                effs = self.eff[matches]
+                coms = self.com[matches]
                 # find out if any matches are good enough
                 if np.any(effs>=self.testeff) and np.any(coms>=self.testcom):
                     matched+=1
