@@ -324,7 +324,7 @@ class read_results(object):
                                'avgfsi':fsil,'maxsiz':maxs,
                                'xvals':txvals,'medsiz':meds,
                                'tmaxs':tmaxs,'tmeds':tmeds,
-                               'tnumc':tnumc}
+                               'tnumc':tnumc,'ffrac':ffrc}
             # Add ColumnDataSource object to class
             setattr(self,'{0}_statsource'.format(dtype),ColumnDataSource(statsource))
 
@@ -1414,7 +1414,8 @@ button.button_type = 'warning';"""
                              widgetbox(self.activedtype,width=320),
                              self.s5)
             avgplots = row(column(self.s1,
-                                  self.s2),
+                                  self.s2,
+                                  self.s8),
                            column(self.s6,
                                   self.s3),
                            column(self.s7,
@@ -1522,6 +1523,19 @@ button.button_type = 'warning';"""
             setattr(self,'{0}_c7l'.format(dtype),c7l)
         self.label_stat_xaxis(self.s7,dtype=self.dtype)
 
+        # Average completeness
+        self.s8 = figure(plot_width=400,plot_height=250,min_border=10,
+                         x_axis_location='below', y_axis_location='left',
+                         x_axis_type='linear',y_axis_type='linear',
+                         toolbar_location=None,
+                         y_range=(-0.03,1.03),y_axis_label='Recovery fraction')
+        self.s8.background_fill_color = self.bcolor
+        for d,dtype in enumerate(self.alldtypes):
+            dtype = nametypes[dtype]
+            c8 = self.s8.scatter(x='xvals',y='ffrac',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
+            setattr(self,'{0}_c8'.format(dtype),c8)
+        self.label_stat_xaxis(self.s8,dtype=self.dtype)
+
         # Dummy plot to generate the legend
         #items = []
         self.s5 = figure(plot_width=200,plot_height=400,
@@ -1567,6 +1581,7 @@ button.button_type = 'warning';"""
             c4 = getattr(self,'{0}_c4'.format(dtype))
             c6 = getattr(self,'{0}_c6'.format(dtype))
             c7 = getattr(self,'{0}_c7'.format(dtype))
+            c8 = getattr(self,'{0}_c8'.format(dtype))
             if ind not in new:
                 c1.visible = False
                 c2.visible = False
@@ -1574,6 +1589,7 @@ button.button_type = 'warning';"""
                 c4.visible = False
                 c6.visible = False
                 c7.visible = False
+                c8.visible = False
             elif ind in new:
                 c1.visible = True
                 c2.visible = True
@@ -1581,6 +1597,7 @@ button.button_type = 'warning';"""
                 c4.visible = True
                 c6.visible = True
                 c7.visible = True
+                c8.visible = True
 
     def buttons(self):
         """
@@ -1715,6 +1732,7 @@ button.button_type = 'warning';"""
             c6l = getattr(self,'{0}_c6l'.format(dtype))
             c7 = getattr(self,'{0}_c7'.format(dtype))
             c7l = getattr(self,'{0}_c7l'.format(dtype))
+            c8 = getattr(self,'{0}_c8'.format(dtype))
 
             # Change source and update glyphs
 
@@ -1743,6 +1761,9 @@ button.button_type = 'warning';"""
             c7.glyph.y = 'medsiz'
             c7l.data_source.data = ss.data
             c7l.glyph.y = 'tmeds'
+            # Median cluster size
+            c8.data_source.data = ss.data
+            c8.glyph.y = 'ffrac'
 
 
 if __name__ == '__main__':
