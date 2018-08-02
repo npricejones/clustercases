@@ -25,6 +25,8 @@ from bokeh import events
 neighbours = 20
 
 
+jitterval = 0.2
+
 # tools to include on bokeh plot
 TOOLS="pan,wheel_zoom,box_zoom,box_select,lasso_select,reset"
 
@@ -37,10 +39,10 @@ resultpath = os.getenv('CLUSTERCASES', cwd)
 typenames = {'spec':'spectra','abun':'abundances','reda':'reduced abundances','toph':'tophat windows','wind':'windows','prin':'principal components'}
 nametypes = {'spectra':'spec','abundances':'abun','reduced abundances':'reda','tophat windows':'toph','windows':'wind','principal components':'prin'}
 
-#             orange     purple     blue        red       green     dark green
-colorlist = ["#F98D20", "#904C77", "#79ADDC", "#ED6A5A", "#B1EF73","#6CAE75"] 
+#             orange     purple     blue        red       green     pink
+colorlist = ["#F98D20", "#904C77", "#79ADDC", "#ED6A5A", "#B1EF73","#EF518B"] 
 
-typecolor = {'spec':"#F98D20",'abun':"#904C77",'reda':"#6CAE75",'toph':"#79ADDC",'wind':"#ED6A5A",'prin':"#B1EF73"}
+typecolor = {'spec':"#F98D20",'abun':"#904C77",'reda':"#EF518B",'toph':"#79ADDC",'wind':"#ED6A5A",'prin':"#B1EF73"}
 
 zp = {'Efficiency':5e-3,'Completeness':5e-3,'Found Silhouette':5e-3,'Matched Silhouette':5e-3,'Found Size':0.5,'Matched Size':0.5}
 lzp=1e-3
@@ -85,7 +87,7 @@ def create_case_list(direc='.'):
     return cases
 
 def create_time_list(case,direc='.'):
-    timelist = glob.glob('{1}/case{0}*.hdf5'.format(case,direc))
+    timelist = glob.glob('{1}/case{0}_*.hdf5'.format(case,direc))
     times = np.array([i.split('_')[1].split('.hdf5')[0] for i in timelist])[::-1]
     return times
 
@@ -139,8 +141,6 @@ class read_results(object):
         # open the h5py file
         self.data = h5py.File('case{0}_{1}.hdf5'.format(self.case,
                                                         self.timestamp),'r+')
-        # set the upper limit when plotting the number of clusters
-        self.maxmem = 1
         # aquire defaults
         if case:
             self.case = case
@@ -231,7 +231,7 @@ class read_results(object):
             self.ticklabels.append('{0}, {1}'.format(self.eps[i],self.min_samples[i]))
         self.paramlist = list(np.array(self.paramchoices)[self.goodinds])
 
-    def generate_average_stats(self,minmem=1,update=False):
+    def generate_average_stats(self,minmem=1,update=False,minlim=1):
         """
         Find average properties across all data types in a run
 
@@ -244,6 +244,9 @@ class read_results(object):
 
         # Track what datatype we were using to start
         vintdtype = copy.deepcopy(self.dtype)
+
+        # set the upper limit when plotting the number of clusters
+        self.maxmem = 1
 
         # Create a master list of labels in case different datatypes 
         # had different parameters 
@@ -259,6 +262,7 @@ class read_results(object):
         
         # create list of xvalues to find where ticks should be plotted
         xvals = np.arange(len(labmaster))
+        jitter = np.linspace(-jitterval,jitterval,len(list(nametypes.keys())))
 
         # for each data type, create array to hold result of the runs
         for d,dtype in enumerate(list(nametypes.keys())):
@@ -272,6 +276,7 @@ class read_results(object):
             meds = 0.01*np.ones(len(labmaster))
             stds = np.zeros(len(labmaster))
             maxs = 0.01*np.ones(len(labmaster))
+            txvals = xvals+jitter[d]
 
             if typenames[dtype] in self.alldtypes:
                 # Read in file data
@@ -302,24 +307,21 @@ class read_results(object):
             # Calculate the true number of clusters above a given limit
             tnumc = np.array([len(self.tsize[self.tsize>minmem])]*len(labmaster))
             self.maxmem = np.max([self.maxmem,tnumc[0]])
-            tmaxs = np.array([np.max(self.tsize[self.tsize>minmem])]*len(labmaster))
-            tmeds = np.array([np.median(self.tsize[self.tsize>minmem])]*len(labmaster))
-            tstds = np.array([np.std(self.tsize[self.tsize>minmem])]*len(labmaster))
+            try:
+                tmaxs = np.array([np.max(self.tsize[self.tsize>minmem])]*len(labmaster))
+                tmeds = np.array([np.median(self.tsize[self.tsize>minmem])]*len(labmaster))
+                tstds = np.array([np.std(self.tsize[self.tsize>minmem])]*len(labmaster))
+            except ValueError:
+                tmaxs = np.array([0.01]*len(labmaster))
+                tmeds = np.array([0.01]*len(labmaster))
             # If the true number of clusters above the limit is None, move out of plot range
             tnumc[tnumc < 1] = 0.01
-            tmaxs[tmaxs < 1] = 0.01
-            tmeds[tmeds < 1] = 0.01
-            upper = meds+stds
-            lower = meds-stds
-            lower[lower < 1] = 1
             # Create dictionary for plotting
             statsource = {'params':labmaster,'numc':numc,
                                'avgeff':effs,'avgcom':coms,
                                'avgfsi':fsil,'maxsiz':maxs,
-                               'xvals':xvals,'medsiz':meds,
-                               'upsiz':upper,'dosiz':lower,
-                               'tmaxs':tmaxs,'uptsi':tmeds+tstds,
-                               'tmeds':tmeds,'dotsi':tmeds-tstds,
+                               'xvals':txvals,'medsiz':meds,
+                               'tmaxs':tmaxs,'tmeds':tmeds,
                                'tnumc':tnumc}
             # Add ColumnDataSource object to class
             setattr(self,'{0}_statsource'.format(dtype),ColumnDataSource(statsource))
@@ -1373,10 +1375,10 @@ button.button_type = 'warning';"""
                              self.s5)
             avgplots = row(column(self.s1,
                                   self.s2),
-                           column(self.s4,
-                                  self.s3),
                            column(self.s6,
-                                  self.s7))
+                                  self.s3),
+                           column(self.s7,
+                                  self.s4))
             topplots = row(buttons,avgplots)
 
             # Here's where you decide the distribution of plots
@@ -1394,7 +1396,7 @@ button.button_type = 'warning';"""
         """
 
         # Number of clusters found
-        self.s1 = figure(plot_width=300,plot_height=250,min_border=10,
+        self.s1 = figure(plot_width=400,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='log',
                          toolbar_location=None,
@@ -1403,14 +1405,14 @@ button.button_type = 'warning';"""
         self.s1.background_fill_color = self.bcolor
         for d,dtype in enumerate(self.alldtypes):
             dtype = nametypes[dtype]
+            c1l = self.s1.line(x='xvals',y='tnumc',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.outcolor,alpha=0.1)
             c1 = self.s1.scatter(x='xvals',y='numc',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
             setattr(self,'{0}_c1'.format(dtype),c1)
-            c1l = self.s1.line(x='xvals',y='tnumc',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.outcolor)
             setattr(self,'{0}_c1l'.format(dtype),c1l)
         self.label_stat_xaxis(self.s1,dtype=self.dtype)
 
         # Average efficiency
-        self.s2 = figure(plot_width=300,plot_height=250,min_border=10,
+        self.s2 = figure(plot_width=400,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='linear',
                          toolbar_location=None,
@@ -1423,7 +1425,7 @@ button.button_type = 'warning';"""
         self.label_stat_xaxis(self.s2,dtype=self.dtype)
 
         # Average completeness
-        self.s3 = figure(plot_width=300,plot_height=250,min_border=10,
+        self.s3 = figure(plot_width=400,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='linear',
                          toolbar_location=None,
@@ -1436,7 +1438,7 @@ button.button_type = 'warning';"""
         self.label_stat_xaxis(self.s3,dtype=self.dtype)
 
         # Average silhouette coefficient
-        self.s4 = figure(plot_width=300,plot_height=250,min_border=10,
+        self.s4 = figure(plot_width=400,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='linear',
                          toolbar_location=None,
@@ -1449,7 +1451,7 @@ button.button_type = 'warning';"""
         self.label_stat_xaxis(self.s4,dtype=self.dtype)
 
         # Max cluster sizes
-        self.s6 = figure(plot_width=300,plot_height=250,min_border=10,
+        self.s6 = figure(plot_width=400,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='log',
                          toolbar_location=None,
@@ -1458,12 +1460,14 @@ button.button_type = 'warning';"""
         self.s6.background_fill_color = self.bcolor
         for d,dtype in enumerate(self.alldtypes):
             dtype = nametypes[dtype]
+            c6l = self.s6.line(x='xvals',y='tmaxs',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.outcolor,alpha=0.1)
             c6 = self.s6.scatter(x='xvals',y='maxsiz',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
             setattr(self,'{0}_c6'.format(dtype),c6)
+            setattr(self,'{0}_c6l'.format(dtype),c6l)
         self.label_stat_xaxis(self.s6,dtype=self.dtype)
 
         # Median cluster sizes
-        self.s7 = figure(plot_width=300,plot_height=250,min_border=10,
+        self.s7 = figure(plot_width=400,plot_height=250,min_border=10,
                          x_axis_location='below', y_axis_location='left',
                          x_axis_type='linear',y_axis_type='log',
                          toolbar_location=None,
@@ -1472,16 +1476,14 @@ button.button_type = 'warning';"""
         self.s7.background_fill_color = self.bcolor
         for d,dtype in enumerate(self.alldtypes):
             dtype = nametypes[dtype]
-            w7 = Whisker(source=getattr(self,'{0}_statsource'.format(dtype)), base="xvals", upper="upsiz", lower="dosiz",line_color=typecolor[dtype],line_alpha=0.6)
-            w7.upper_head.line_color = typecolor[dtype]
-            w7.lower_head.line_color = typecolor[dtype]
-            self.s7.add_layout(w7)
+            c7l = self.s7.line(x='xvals',y='tmeds',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.outcolor,alpha=0.1)
             c7 = self.s7.scatter(x='xvals',y='medsiz',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
             setattr(self,'{0}_c7'.format(dtype),c7)
+            setattr(self,'{0}_c7l'.format(dtype),c7l)
         self.label_stat_xaxis(self.s7,dtype=self.dtype)
 
         # Dummy plot to generate the legend
-        items = []
+        #items = []
         self.s5 = figure(plot_width=200,plot_height=400,
                          x_axis_location=None,y_axis_location=None,
                          toolbar_location=None,x_range=(0,1),y_range=(0,1))
@@ -1492,10 +1494,12 @@ button.button_type = 'warning';"""
         self.s5.outline_line_color = None
         for d,dtype in enumerate(list(nametypes.keys())):
             dtype = nametypes[dtype]
-            c5 = self.s5.scatter(x=[0.5],y=[0.5],color=typecolor[dtype],size=5,alpha=0.6)
-            items.append((typenames[dtype],[c5]))
-        legend = Legend(items=items, location=(0,30))
-        self.s5.add_layout(legend, 'center')
+            c5 = self.s5.scatter(x=[0.5],y=[0.5],color=typecolor[dtype],size=5,alpha=0.6,legend=typenames[dtype])
+            #items.append((typenames[dtype],[c5]))
+        #legend = Legend(items=items, location=(0,30))
+        #self.s5.add_layout(legend, 'center')
+        self.s5.legend.location = "top_left"
+        self.s5.legend.click_policy="hide"
         self.s5.legend.background_fill_alpha = 1
 
 
@@ -1533,6 +1537,17 @@ button.button_type = 'warning';"""
         # Create drop down menu for possible timestamps
         self.selecttime = Select(title='timestamp',value=self.timestamp,options=list(times))
         self.selecttime.on_change('value',self.updatetime)
+
+        # Create toggle for data type visibility
+        # code = '''\
+        # object1.visible = toggle.active
+        # object2.visible = toggle.active
+        # object3.visible = toggle.active
+        # object4.visible = toggle.active
+        # '''
+        # glyphcb = CustomJS.from_coffeescript(code=code, args={})
+        # self.glyphvis = Toggle(label="One-to-one line", button_type="default", active=True,callback=linecb)
+        # glyphcb.args = {'toggle': self.glyphvis}
 
         # Create button to actually push results of new data to plot
         self.loadbutton = Button(label='I do nothing until you select new run info above', button_type='warning')
@@ -1594,6 +1609,7 @@ button.button_type = 'warning';"""
             self.loadbutton.button_type='danger'
             self.loadbutton.label = 'No new data to load - try another file'
         elif not self.allbad:
+            self.minsize.title = "Minimum size - choose between 1 and {0}:".format(int(self.maxmem))
             # Get new average stats for this run
             self.generate_average_stats(minmem=int(self.minsize.value),update=True)
             # Update loadbutton behaviour with new callback arguments (i.e. self.sourcedict has the new data in it in the 'new...' keys)
@@ -1613,7 +1629,7 @@ button.button_type = 'warning';"""
         # Find the minimum
         num = int(new)
         # Recalculate averages - includes natural zeroing if datatype not present
-        self.generate_average_stats(minmem=num)
+        self.generate_average_stats(minmem=num,minlim=num)
         # Cycle through available data types  and update glyphs
         for dtype in self.alldtypes:
             dtype = nametypes[dtype]
@@ -1625,8 +1641,9 @@ button.button_type = 'warning';"""
             c3 = getattr(self,'{0}_c3'.format(dtype))
             c4 = getattr(self,'{0}_c4'.format(dtype))
             c6 = getattr(self,'{0}_c6'.format(dtype))
+            c6l = getattr(self,'{0}_c6l'.format(dtype))
             c7 = getattr(self,'{0}_c7'.format(dtype))
-            w7 = getattr(self,'{0}_w7'.format(dtype))
+            c7l = getattr(self,'{0}_c7l'.format(dtype))
 
             # Change source and update glyphs
 
@@ -1648,12 +1665,13 @@ button.button_type = 'warning';"""
             # Max cluster size
             c6.data_source.data = ss.data
             c6.glyph.y = 'maxsiz'
+            c6l.data_source.data = ss.data
+            c6l.glyph.y = 'tmaxs'
             # Median cluster size
             c7.data_source.data = ss.data
             c7.glyph.y = 'medsiz'
-            w7.data_source.data = ss.data
-            w7.glyph.upper = 'upsiz'
-            w7.glyph.lower = 'dosiz'
+            c7l.data_source.data = ss.data
+            c7l.glyph.y = 'tmeds'
 
 
 if __name__ == '__main__':
