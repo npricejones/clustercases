@@ -16,7 +16,7 @@ from clustering_stats import *
 from bokeh.layouts import row, column, widgetbox
 from bokeh.models import BoxSelectTool, LassoSelectTool, Spacer,CustomJS, Legend
 from bokeh.models.glyphs import Circle
-from bokeh.models.widgets import Toggle,RadioButtonGroup,AutocompleteInput,Tabs, Panel, Select, Button, TextInput
+from bokeh.models.widgets import Toggle,RadioButtonGroup,AutocompleteInput,Tabs, Panel, Select, Button, TextInput, CheckboxGroup
 from bokeh.plotting import figure, curdoc, ColumnDataSource, reset_output
 from bokeh.io import show, export_svgs
 from bokeh import events
@@ -1358,6 +1358,7 @@ button.button_type = 'warning';"""
                              widgetbox(self.selecttime,width=320,height=30),
                              widgetbox(self.loadbutton,width=320,height=30),
                              widgetbox(self.minsize,width=320,height=30),
+                             widgetbox(self.activedtype,width=320),
                              self.s5)
             avgplots = row(column(self.s1,
                                   self.s2),
@@ -1479,8 +1480,19 @@ button.button_type = 'warning';"""
         self.minsize = TextInput(value="1", title="Minimum size - choose between 1 and {0}:".format(int(self.maxmem)))
         self.minsize.on_change('value',self.updatestatplot)
 
+        self.activedtype = CheckboxGroup(labels=list(self.alldtypes), active=list(np.arange(len(self.alldtypes))))
+        # # Create toggle for one-to-one visibility
+        # code = '''\
+        # object1.visible = toggle.active
+        # object2.visible = toggle.active
+        # object3.visible = toggle.active
+        # object4.visible = toggle.active
+        # '''
+        # linecb = CustomJS.from_coffeescript(code=code, args={})
+        # self.toggleline = Toggle(label="One-to-one line", button_type="default", active=True,callback=linecb)
+        # linecb.args = {'toggle': self.toggleline, 'object1': self.l1, 'object2': self.l2, 'object3': self.l3, 'object4': self.l4}
 
-# Create drop down menu for possible cases
+        # Create drop down menu for possible cases
         self.selectcase = Select(title='case',value=self.case,options=list(cases))
         self.selectcase.on_change('value',self.updatecase)
 
