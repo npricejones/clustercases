@@ -273,11 +273,15 @@ class read_results(object):
             coms = -np.ones(len(labmaster))
             fsil = -2*np.ones(len(labmaster))
             numc = 0.01*np.ones(len(labmaster))
+            recv = np.zeros(len(labmaster))
             meds = 0.01*np.ones(len(labmaster))
             stds = np.zeros(len(labmaster))
             maxs = 0.01*np.ones(len(labmaster))
             ffrc = np.zeros(len(labmaster))
             txvals = xvals+jitter[d]
+
+            # Calculate the true number of clusters above a given limit
+            tnumc = np.array([len(self.tsize[self.tsize>minmem])]*len(labmaster))
 
             if typenames[dtype] in self.alldtypes:
                 # Read in file data
@@ -302,12 +306,11 @@ class read_results(object):
                                 effs[match] = np.mean(self.eff[vals])
                                 coms[match] = np.mean(self.com[vals])
                                 fsil[match] = np.mean(self.fsil[vals])
-                                ffrc[match] = self.found_frac()
+                                ffrc[match],recv[match] = self.found_frac()
                             self.maxmem = np.max([self.maxmem,np.max(numc)])
                     except KeyError:
                         pass
-            # Calculate the true number of clusters above a given limit
-            tnumc = np.array([len(self.tsize[self.tsize>minmem])]*len(labmaster))
+
             self.maxmem = np.max([self.maxmem,tnumc[0]])
             try:
                 tmaxs = np.array([np.max(self.tsize[self.tsize>minmem])]*len(labmaster))
@@ -324,7 +327,8 @@ class read_results(object):
                                'avgfsi':fsil,'maxsiz':maxs,
                                'xvals':txvals,'medsiz':meds,
                                'tmaxs':tmaxs,'tmeds':tmeds,
-                               'tnumc':tnumc,'ffrac':ffrc}
+                               'tnumc':tnumc,'ffrac':ffrc,
+                               'recv':recv}
             # Add ColumnDataSource object to class
             setattr(self,'{0}_statsource'.format(dtype),ColumnDataSource(statsource))
 
@@ -339,7 +343,7 @@ class read_results(object):
         self.read_dtype_data()
         self.read_run_data(eps=self.epsval,min_sample=self.minval,update=False)
 
-    def found_frac(self,testnum=10,testsize=10,testeff=0.8,testcom=0.8):
+    def found_frac(self,testnum=10,testsize=20,testeff=0.8,testcom=0.8):
         """
         For a random selection of true clusters, calculate how many are found accurately by the algorithm
 
@@ -356,22 +360,23 @@ class read_results(object):
             self.tseff = testeff
         if 'tscom' not in dir(self):
             self.tscom = testcom
+        print(self.tsnum,self.tssize,self.tseff,self.tscom,self.matchtlabs)
         matched = 0
         # find all true clusters above the size limit
-        sizes = self.tsize[self.tsize>self.tssize]
+        goodlabels = self.labels_true[self.tsize>self.tssize]
         # pick the clusters randomly
-        inds = np.random.randint(low=0,high=len(sizes),size=self.tsnum)
-        for i,size in enumerate(sizes[inds]):
-            if i in self.matchtlabs:
+        inds = np.random.randint(low=0,high=len(goodlabels),size=self.tsnum)
+        for lab in goodlabels[inds]:
+            if lab in self.matchtlabs:
                 # find inds of all clusters matched to this one
-                matches = np.where(self.matchtlabs == i) 
+                matches = np.where(self.matchtlabs == lab) 
                 # find efficiencies and completeness for these clusters
                 effs = self.eff[matches]
                 coms = self.com[matches]
                 # find out if any matches are good enough
                 if np.any(effs>=self.tseff) and np.any(coms>=self.tscom):
                     matched+=1
-        return float(matched)/tsnum
+        return float(matched)/self.tsnum, float(len(self.effs))/len(sizes)
 
     def read_run_data(self,eps=None,min_sample=None,update=False,datatype=None):
         """
@@ -1408,16 +1413,17 @@ button.button_type = 'warning';"""
                              widgetbox(self.selecttime,width=320,height=30),
                              widgetbox(self.loadbutton,width=320,height=30),
                              widgetbox(self.minsize,width=320,height=30),
-                             widgetbox(self.testnum,width=320),
-                             widgetbox(self.testeff,width=320),
-                             widgetbox(self.testcom,width=320),
                              widgetbox(self.activedtype,width=320),
                              self.s5)
             avgplots = row(column(self.s1,
                                   self.s2,
                                   self.s8),
                            column(self.s6,
-                                  self.s3),
+                                  self.s3,
+                                  widgetbox(self.testnum,width=390),
+                                  widgetbox(self.testsize,width=390),
+                                  widgetbox(self.testeff,width=390),
+                                  widgetbox(self.testcom,width=390)),
                            column(self.s7,
                                   self.s4))
             topplots = row(buttons,avgplots)
@@ -1619,15 +1625,19 @@ button.button_type = 'warning';"""
         self.activedtype.on_change('active',self.hidedata)
 
         # Choose number of clusters to test
-        self.testnum = TextInput(value="10", title="Number of true clusters to test, choose between 1 and {0}:".format(len(self.tsize)))
+        self.testnum = TextInput(value="10", title="# true clusters to test, between 1 and {0}:".format(int(np.sum(self.tsize>self.tssize))))
         self.testnum.on_change('value',self.updateff)
 
+        # Choose number of clusters to test
+        self.testsize = TextInput(value="20", title="Size of true clusters to test, between 1 and {0}:".format(int(np.max(self.tsize))))
+        self.testsize.on_change('value',self.updateff)
+
         # Choose minimum efficiency for successful fit
-        self.testeff = TextInput(value="0.8", title="Minimum efficiency for found fraction, choose between 0 and 1:")
+        self.testeff = TextInput(value="0.8", title="Min efficiency for found fraction, between 0 and 1:")
         self.testeff.on_change('value',self.updateff)
 
         # Choose minimum completeness for successful fit
-        self.testcom = TextInput(value="0.8", title="Minimum completeness for found fraction, choose between 0 and 1:")
+        self.testcom = TextInput(value="0.8", title="Min completeness for found fraction, between 0 and 1:")
         self.testcom.on_change('value',self.updateff)
 
         # Create drop down menu for possible cases
@@ -1645,16 +1655,18 @@ button.button_type = 'warning';"""
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
 
     def updateff(self,attr,old,new):
-        self.tsnum = self.testnum.value
-        self.tseff = self.testeff.value
-        self.tscom = self.testcom.value
+        self.tsnum = int(self.testnum.value)
+        self.tssize = int(self.testsize.value)
+        self.tseff = float(self.testeff.value)
+        self.tscom = float(self.testcom.value)
+        num = int(self.minsize.value)
+
+        self.generate_average_stats(minmem=num,minlim=num)
 
         for dtype in self.alldtypes:
-            dtypeff = self.found_frac()
             dtype = nametypes[dtype]
             # extract each plot for this datatype
             ss = getattr(self,'{0}_statsource'.format(dtype))
-            ss['ffrac'] = dtypeff
             c8 = getattr(self,'{0}_c8'.format(dtype))
 
             # Change source and update glyphs
