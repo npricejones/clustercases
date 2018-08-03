@@ -314,6 +314,8 @@ class read_results(object):
                     except KeyError:
                         pass
 
+            recv[recv>1] = 1
+
             self.maxmem = np.max([self.maxmem,tnumc[0]])
             try:
                 tmaxs = np.array([np.max(self.tsize[self.tsize>minmem])]*len(labmaster))
@@ -379,7 +381,7 @@ class read_results(object):
                 # find out if any matches are good enough
                 if np.any(effs>=self.tseff) and np.any(coms>=self.tscom):
                     matched+=1
-        return float(matched)/self.tsnum, float(len(self.eff))/len(self.tlabs)
+        return float(matched)/self.tsnum, float(len(self.eff))/len(goodlabels)
 
     def read_run_data(self,eps=None,min_sample=None,update=False,datatype=None):
         """
@@ -1423,8 +1425,8 @@ button.button_type = 'warning';"""
                                   self.s8),
                            column(self.s6,
                                   self.s3,
-                                  widgetbox(self.testnum,width=390),
                                   widgetbox(self.testsize,width=390),
+                                  widgetbox(self.testnum,width=390),
                                   widgetbox(self.testeff,width=390),
                                   widgetbox(self.testcom,width=390)),
                            column(self.s7,
@@ -1622,7 +1624,7 @@ button.button_type = 'warning';"""
         times = create_time_list(self.case)
 
         # Creates text input to choose minimum cluster size to consider
-        self.minsize = TextInput(value="1", title="Minimum size - choose between 1 and {0}:".format(int(self.maxmem)))
+        self.minsize = TextInput(value="1", title="Minimum cluster size")
         self.minsize.on_change('value',self.updatestatplot)
 
         # Choose visible glyphs - spectra and abundances by default
@@ -1663,8 +1665,12 @@ button.button_type = 'warning';"""
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
 
     def updateff(self,attr,old,new):
-        self.tsnum = int(self.testnum.value)
         self.tssize = int(self.testsize.value)
+        self.testnum.title="# true clusters to test, between 1 and {0}:".format(int(np.sum(self.tsize>self.tssize)))
+        tsnum = int(self.testnum.value)
+        if tsnum > int(np.sum(self.tsize>self.tssize)):
+            tsnum = int(np.sum(self.tsize>self.tssize))
+        self.tsnum = tsnum
         self.tseff = float(self.testeff.value)
         self.tscom = float(self.testcom.value)
         num = int(self.minsize.value)
@@ -1740,7 +1746,6 @@ button.button_type = 'warning';"""
             self.loadbutton.button_type='danger'
             self.loadbutton.label = 'No new data to load - try another file'
         elif not self.allbad:
-            self.minsize.title = "Minimum size - choose between 1 and {0}:".format(int(self.maxmem))
             # Get new average stats for this run
             self.generate_average_stats(minmem=int(self.minsize.value),update=True)
             # Update loadbutton behaviour with new callback arguments (i.e. self.sourcedict has the new data in it in the 'new...' keys)
