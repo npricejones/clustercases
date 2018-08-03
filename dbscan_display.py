@@ -348,19 +348,19 @@ class read_results(object):
         testeff:        minimum efficiency value to be considered a good match
         testcom:        minimum completeness value to be considered a good match
         """
-        if 'testnum' not in dir(self):
-            self.testnum = testnum
-        if 'testsize' not in dir(self):
-            self.testsize = testsize
-        if 'testeff' not in dir(self):
-            self.testeff = testeff
-        if 'testcom' not in dir(self):
-            self.testcom = testcom
+        if 'tsnum' not in dir(self):
+            self.tsnum = testnum
+        if 'tssize' not in dir(self):
+            self.tssize = testsize
+        if 'tseff' not in dir(self):
+            self.tseff = testeff
+        if 'tscom' not in dir(self):
+            self.tscom = testcom
         matched = 0
         # find all true clusters above the size limit
-        sizes = self.tsize[self.tsize>self.testsize]
+        sizes = self.tsize[self.tsize>self.tssize]
         # pick the clusters randomly
-        inds = np.random.randint(low=0,high=len(sizes),size=self.testnum)
+        inds = np.random.randint(low=0,high=len(sizes),size=self.tsnum)
         for i,size in enumerate(sizes[inds]):
             if i in self.matchtlabs:
                 # find inds of all clusters matched to this one
@@ -369,9 +369,9 @@ class read_results(object):
                 effs = self.eff[matches]
                 coms = self.com[matches]
                 # find out if any matches are good enough
-                if np.any(effs>=self.testeff) and np.any(coms>=self.testcom):
+                if np.any(effs>=self.tseff) and np.any(coms>=self.tscom):
                     matched+=1
-        return float(matched)/testnum
+        return float(matched)/tsnum
 
     def read_run_data(self,eps=None,min_sample=None,update=False,datatype=None):
         """
@@ -1613,7 +1613,6 @@ button.button_type = 'warning';"""
 
         # Choose visible glyphs - spectra and abundances by default
         activeinds = np.where((np.array(self.alldtypes)=='spectra') | (np.array(self.alldtypes) == 'abundances'))
-        print('active',activeinds,self.alldtypes)
         self.activedtype = CheckboxGroup(labels=self.alldtypes, 
                                          active=list(np.arange(len(self.alldtypes))[activeinds]))
         self.hidedata('active',[1],self.activedtype.active)
@@ -1621,13 +1620,15 @@ button.button_type = 'warning';"""
 
         # Choose number of clusters to test
         self.testnum = TextInput(value="10", title="Number of true clusters to test, choose between 1 and {0}:".format(len(self.tsize)))
-        #self.testnum.on_change('value',AFUN)
+        self.testnum.on_change('value',self.updateff)
 
         # Choose minimum efficiency for successful fit
         self.testeff = TextInput(value="0.8", title="Minimum efficiency for found fraction, choose between 0 and 1:")
+        self.testeff.on_change('value',self.updateff)
 
         # Choose minimum completeness for successful fit
         self.testcom = TextInput(value="0.8", title="Minimum completeness for found fraction, choose between 0 and 1:")
+        self.testcom.on_change('value',self.updateff)
 
         # Create drop down menu for possible cases
         self.selectcase = Select(title='case',value=self.case,options=list(cases))
@@ -1642,6 +1643,26 @@ button.button_type = 'warning';"""
         self.sourcedict['button'] = self.loadbutton
         self.JScallback()
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
+
+    def updateff(self,attr,old,new):
+        self.tsnum = self.testnum.value
+        self.tseff = self.testeff.value
+        self.tscom = self.testcom.value
+
+        for dtype in self.alldtypes:
+            dtypeff = self.found_frac()
+            dtype = nametypes[dtype]
+            # extract each plot for this datatype
+            ss = getattr(self,'{0}_statsource'.format(dtype))
+            ss['ffrac'] = dtypeff
+            c8 = getattr(self,'{0}_c8'.format(dtype))
+
+            # Change source and update glyphs
+
+            c8.data_source.data = ss.data
+            c8.glyph.y = 'ffrac'
+
+
 
     def updatecase(self,attr,old,new):
         """
