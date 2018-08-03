@@ -155,6 +155,9 @@ class read_results(object):
         for dtype in alldtypes:
             self.alldtypes.append(typenames[dtype])
 
+        # read in the true cluster labels for this file
+        self.tlabs = np.unique(self.data['labels_true'][:])
+
         # read in the true cluster sizes for this file
         self.tsize = self.data['true_size'][:]
 
@@ -363,7 +366,7 @@ class read_results(object):
         print(self.tsnum,self.tssize,self.tseff,self.tscom,self.matchtlabs)
         matched = 0
         # find all true clusters above the size limit
-        goodlabels = self.labels_true[self.tsize>self.tssize]
+        goodlabels = self.tlabs[self.tsize>self.tssize]
         # pick the clusters randomly
         inds = np.random.randint(low=0,high=len(goodlabels),size=self.tsnum)
         for lab in goodlabels[inds]:
@@ -376,7 +379,7 @@ class read_results(object):
                 # find out if any matches are good enough
                 if np.any(effs>=self.tseff) and np.any(coms>=self.tscom):
                     matched+=1
-        return float(matched)/self.tsnum, float(len(self.effs))/len(sizes)
+        return float(matched)/self.tsnum, float(len(self.eff))/len(self.tlabs)
 
     def read_run_data(self,eps=None,min_sample=None,update=False,datatype=None):
         """
@@ -1538,8 +1541,10 @@ button.button_type = 'warning';"""
         self.s8.background_fill_color = self.bcolor
         for d,dtype in enumerate(self.alldtypes):
             dtype = nametypes[dtype]
+            c8l = self.s8.line(x='xvals',y='recv',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],alpha=0.5)
             c8 = self.s8.scatter(x='xvals',y='ffrac',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
             setattr(self,'{0}_c8'.format(dtype),c8)
+            setattr(self,'{0}_c8l'.format(dtype),c8l)
         self.label_stat_xaxis(self.s8,dtype=self.dtype)
 
         # Dummy plot to generate the legend
@@ -1588,6 +1593,7 @@ button.button_type = 'warning';"""
             c6 = getattr(self,'{0}_c6'.format(dtype))
             c7 = getattr(self,'{0}_c7'.format(dtype))
             c8 = getattr(self,'{0}_c8'.format(dtype))
+            c8l = getattr(self,'{0}_c8l'.format(dtype))
             if ind not in new:
                 c1.visible = False
                 c2.visible = False
@@ -1596,6 +1602,7 @@ button.button_type = 'warning';"""
                 c6.visible = False
                 c7.visible = False
                 c8.visible = False
+                c8l.visible = False
             elif ind in new:
                 c1.visible = True
                 c2.visible = True
@@ -1604,6 +1611,7 @@ button.button_type = 'warning';"""
                 c6.visible = True
                 c7.visible = True
                 c8.visible = True
+                c8l.visible = True
 
     def buttons(self):
         """
@@ -1668,11 +1676,13 @@ button.button_type = 'warning';"""
             # extract each plot for this datatype
             ss = getattr(self,'{0}_statsource'.format(dtype))
             c8 = getattr(self,'{0}_c8'.format(dtype))
+            c8l = getattr(self,'{0}_c8l'.format(dtype))
 
             # Change source and update glyphs
 
             c8.data_source.data = ss.data
             c8.glyph.y = 'ffrac'
+            c8l.glyph.y = 'recv'
 
 
 
@@ -1766,6 +1776,7 @@ button.button_type = 'warning';"""
             c7 = getattr(self,'{0}_c7'.format(dtype))
             c7l = getattr(self,'{0}_c7l'.format(dtype))
             c8 = getattr(self,'{0}_c8'.format(dtype))
+            c8l = getattr(self,'{0}_c8l'.format(dtype))
 
             # Change source and update glyphs
 
@@ -1794,9 +1805,11 @@ button.button_type = 'warning';"""
             c7.glyph.y = 'medsiz'
             c7l.data_source.data = ss.data
             c7l.glyph.y = 'tmeds'
-            # Median cluster size
+            # Recovery fraction
             c8.data_source.data = ss.data
             c8.glyph.y = 'ffrac'
+            c8l.data_source.data = ss.data
+            c8l.glyph.y = 'recv'
 
 
 if __name__ == '__main__':
