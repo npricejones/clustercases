@@ -1746,6 +1746,15 @@ button.button_type = 'warning';"""
             self.loadbutton.button_type='danger'
             self.loadbutton.label = 'No new data to load - try another file'
         elif not self.allbad:
+            self.testsize.title = "Size of true clusters to test, between 1 and {0}:".format(int(np.max(self.tsize)))
+            self.tssize = int(self.testsize.value)
+            self.testnum.title="# true clusters to test, between 1 and {0}:".format(int(np.sum(self.tsize>self.tssize)))
+            tsnum = int(self.testnum.value)
+            if tsnum > int(np.sum(self.tsize>self.tssize)):
+                tsnum = int(np.sum(self.tsize>self.tssize))
+            self.tsnum = tsnum
+            self.tseff = float(self.testeff.value)
+            self.tscom = float(self.testcom.value)
             # Get new average stats for this run
             self.generate_average_stats(minmem=int(self.minsize.value),update=True)
             # Update loadbutton behaviour with new callback arguments (i.e. self.sourcedict has the new data in it in the 'new...' keys)
