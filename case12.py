@@ -15,9 +15,9 @@ crossfitatms = [26] # atomic numbers of cross terms
 spreadchoice = spreads # choose which abudance spreads to employ
 
 # DBSCAN parameters                                                             
-seps = np.arange(0.5,1.1,0.1)
+seps = np.array([0.5,0.6,0.7,0.8,0.9,1.0])
 smin = np.array([2]*len(seps))
-aeps = np.arange(0.3,0.8,0.1)
+aeps = np.array([0.3,0.4,0.5,0.6,0.7])
 amin = np.array([2]*len(aeps))
 peps = np.array([0.04,0.06,0.08,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0])
 pmin = np.array([2]*len(peps))
