@@ -264,7 +264,7 @@ class read_results(object):
             self.ticklabels.append('{0}, {1}'.format(self.eps[i],self.min_samples[i]))
         self.paramlist = list(np.array(self.paramchoices)[self.goodinds])
 
-    def generate_average_stats(self,minmem=1,update=False,minlim=1,testnum=10,testsize=20,testeff=0.8,testcom=0.8):
+    def generate_average_stats(self,minmem=1,update=False,testnum=10,testsize=20,testeff=0.8,testcom=0.8):
         """
         Find average properties across all data types in a run
 
@@ -358,13 +358,14 @@ class read_results(object):
             # If the true number of clusters above the limit is None, move out of plot range
             tnumc[tnumc < 1] = 0.01
             # Create dictionary for plotting
+            print(ffrc-recv,ffrc,ffrc+recv)
             statsource = {'params':labmaster,'numc':numc,
                                'avgeff':effs,'avgcom':coms,
                                'avgfsi':fsil,'maxsiz':maxs,
                                'xvals':txvals,'medsiz':meds,
                                'tmaxs':tmaxs,'tmeds':tmeds,
                                'tnumc':tnumc,'ffrac':ffrc,
-                               'recv':recv}
+                               'ufrac':ffrc+recv,'lfrac':ffrc-recv}
             # Add ColumnDataSource object to class
             setattr(self,'{0}_statsource'.format(dtype),ColumnDataSource(statsource))
 
@@ -379,7 +380,7 @@ class read_results(object):
         self.read_dtype_data()
         self.read_run_data(eps=self.epsval,min_sample=self.minval,update=False)
 
-    def found_frac(self,testnum=10,testsize=20,testeff=0.8,testcom=0.8,iters=100):
+    def found_frac(self,testnum=10,testsize=20,testeff=0.8,testcom=0.8,iters=1000):
         """
         For a random selection of true clusters, calculate how many are found accurately by the algorithm
 
@@ -410,8 +411,8 @@ class read_results(object):
                     if np.any(effs>=self.tseff) and np.any(coms>=self.tscom):
                         matched+=1
             allmatched[i] = matched
-        print(np.median(allmatched)/self.tsnum)
-        return np.median(allmatched)/self.tsnum, float(len(self.eff))/len(goodlabels)
+        print(np.mean(allmatched)/self.tsnum,np.std(allmatched)/self.tsnum)
+        return np.mean(allmatched)/self.tsnum, np.std(allmatched)/self.tsnum
 
     def read_run_data(self,eps=None,min_sample=None,update=False,datatype=None):
         """
@@ -1452,7 +1453,8 @@ button.button_type = 'warning';"""
                              self.s5)
             avgplots = row(column(self.s1,
                                   self.s7,
-                                  self.s8),
+                                  self.s8,
+                                  widgetbox(self.statbutton,width=390)),
                            column(self.s2,
                                   self.s3,
                                   widgetbox(self.testsize,width=390),
@@ -1574,9 +1576,14 @@ button.button_type = 'warning';"""
         self.s8.background_fill_color = self.bcolor
         for d,dtype in enumerate(self.alldtypes):
             dtype = nametypes[dtype]
+            w8 = Whisker(source=getattr(self,'{0}_statsource'.format(dtype)), base="xvals", upper="ufrac", lower="lfrac",line_color=typecolor[dtype],line_alpha=0.6)
+            w8.upper_head.line_color=typecolor[dtype]
+            w8.lower_head.line_color=typecolor[dtype]
+            self.s8.add_layout(w8)
             #c8l = self.s8.line(x='xvals',y='recv',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],alpha=0.5)
             c8 = self.s8.scatter(x='xvals',y='ffrac',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
             setattr(self,'{0}_c8'.format(dtype),c8)
+            setattr(self,'{0}_w8'.format(dtype),w8)
             #setattr(self,'{0}_c8l'.format(dtype),c8l)
         self.label_stat_xaxis(self.s8,dtype=self.dtype)
 
@@ -1654,6 +1661,7 @@ button.button_type = 'warning';"""
             c6 = getattr(self,'{0}_c6'.format(dtype))
             c7 = getattr(self,'{0}_c7'.format(dtype))
             c8 = getattr(self,'{0}_c8'.format(dtype))
+            w8 = getattr(self,'{0}_w8'.format(dtype))
             #c8l = getattr(self,'{0}_c8l'.format(dtype))
             c9 = getattr(self,'{0}_c9'.format(dtype))
             c10 = getattr(self,'{0}_c10'.format(dtype))
@@ -1665,6 +1673,7 @@ button.button_type = 'warning';"""
                 c6.visible = False
                 c7.visible = False
                 c8.visible = False
+                w8.visible = False
                 #c8l.visible = False
                 c9.visible = False
                 c10.visible = False
@@ -1676,6 +1685,7 @@ button.button_type = 'warning';"""
                 c6.visible = True
                 c7.visible = True
                 c8.visible = True
+                w8.visible = True
                 #c8l.visible = True
                 c9.visible = True
                 c10.visible = True
@@ -1715,6 +1725,9 @@ button.button_type = 'warning';"""
         self.testcom = TextInput(value="0.8", title="Min completeness for found fraction, between 0 and 1:")
         self.testcom.on_change('value',self.updateff)
 
+        # A status button
+        self.statbutton = Button(label="No recovery fraction calcuation in progress", button_type='default')
+
         # Create drop down menu for possible cases
         self.selectcase = Select(title='case',value=self.case,options=list(cases))
         self.selectcase.on_change('value',self.updatecase)
@@ -1730,8 +1743,11 @@ button.button_type = 'warning';"""
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
 
     def updateff(self,attr,old,new):
+        print('I was supposed to change a button')
+        self.statbutton.label="Calculating recovery fraction"
+        self.statbutton.button_type='danger'
         tssize = int(self.testsize.value)
-        self.testnum.title="# true clusters to test, between 1 and {0}:".format(int(np.sum(self.tsize>self.tssize)))
+        self.testnum.title="# true clusters to test, between 1 and {0}:".format(int(np.sum(self.tsize>tssize)))
         tsnum = int(self.testnum.value)
         if tsnum > int(np.sum(self.tsize>tssize)):
             tsnum = int(np.sum(self.tsize>tssize))
@@ -1739,22 +1755,27 @@ button.button_type = 'warning';"""
         tscom = float(self.testcom.value)
         num = int(self.minsize.value)
 
-        self.generate_average_stats(minmem=num,minlim=num,testnum=tsnum,testsize=tssize,testeff=tseff,testcom=tscom)
+        self.generate_average_stats(minmem=num,testnum=tsnum,testsize=tssize,testeff=tseff,testcom=tscom)
 
         for dtype in self.alldtypes:
             dtype = nametypes[dtype]
             # extract each plot for this datatype
             ss = getattr(self,'{0}_statsource'.format(dtype))
             c8 = getattr(self,'{0}_c8'.format(dtype))
+            w8 = getattr(self,'{0}_w8'.format(dtype))
             #c8l = getattr(self,'{0}_c8l'.format(dtype))
 
             # Change source and update glyphs
 
             c8.data_source.data = ss.data
             c8.glyph.y = 'ffrac'
+            w8.source.data = ss.data
+            w8.upper = 'ufrac'
+            w8.lower = 'lfrac'
             #c8l.glyph.y = 'recv'
 
-
+        self.statbutton.label="No recovery fraction calcuation in progress"
+        self.statbutton.button_type='default'
 
     def updatecase(self,attr,old,new):
         """
@@ -1844,7 +1865,7 @@ button.button_type = 'warning';"""
         tseff = float(self.testeff.value)
         tscom = float(self.testcom.value)
         # Recalculate averages - includes natural zeroing if datatype not present
-        self.generate_average_stats(minmem=num,minlim=num,testnum=tsnum,testsize=tssize,testeff=tseff,testcom=tscom)
+        self.generate_average_stats(minmem=num,testnum=tsnum,testsize=tssize,testeff=tseff,testcom=tscom)
         # Cycle through available data types  and update glyphs
         for dtype in self.alldtypes:
             dtype = nametypes[dtype]
@@ -1860,6 +1881,7 @@ button.button_type = 'warning';"""
             c7 = getattr(self,'{0}_c7'.format(dtype))
             c7l = getattr(self,'{0}_c7l'.format(dtype))
             c8 = getattr(self,'{0}_c8'.format(dtype))
+            w8 = getattr(self,'{0}_w8'.format(dtype))
             #c8l = getattr(self,'{0}_c8l'.format(dtype))
             c9 = getattr(self,'{0}_c9'.format(dtype))
             c10 = getattr(self,'{0}_c10'.format(dtype))
@@ -1904,6 +1926,9 @@ button.button_type = 'warning';"""
             c8.data_source.data = ss.data
             c8.glyph.y = 'ffrac'
             c8.glyph.x = 'xvals'
+            w8.source.data = ss.data
+            w8.upper = 'ufrac'
+            w8.lower = 'lfrac'
             #c8l.data_source.data = ss.data
             #c8l.glyph.y = 'recv'
             # Average efficiency
