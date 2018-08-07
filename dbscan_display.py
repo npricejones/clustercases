@@ -36,8 +36,26 @@ resultpath = os.getenv('CLUSTERCASES', cwd)
 
 # Types of data that clustering was run on
 
-typenames = {'spec':'spectra','abun':'abundances','reda':'reduced abundances','toph':'tophat windows','wind':'windows','prin':'principal components'}
-nametypes = {'spectra':'spec','abundances':'abun','reduced abundances':'reda','tophat windows':'toph','windows':'wind','principal components':'prin'}
+typenames = {'spec':'spectra',
+             'abun':'abundances',
+             'reda':'reduced abundances',
+             'toph':'tophat windows',
+             'wind':'windows',
+             'prin':'principal components',
+             'prin2':'2 principal components',
+             'prin5':'5 principal components',
+             'prin10':'10 principal components',
+             'prin20':'2 principal components'}
+nametypes = {'spectra':'spec',
+             'abundances':'abun',
+             'reduced abundances':'reda',
+             'tophat windows':'toph',
+             'windows':'wind',
+             'principal components':'prin',
+             '2 principal components':'prin2',
+             '5 principal components':'prin5',
+             '10 principal components':'prin10',
+             '20 principal components':'prin20',}
 
 #             orange     purple     blue        red       green     pink
 colorlist = ["#F98D20", "#904C77", "#79ADDC", "#ED6A5A", "#8ADD37","#EF518B"] 
@@ -234,7 +252,7 @@ class read_results(object):
             self.ticklabels.append('{0}, {1}'.format(self.eps[i],self.min_samples[i]))
         self.paramlist = list(np.array(self.paramchoices)[self.goodinds])
 
-    def generate_average_stats(self,minmem=1,update=False,minlim=1):
+    def generate_average_stats(self,minmem=1,update=False,minlim=1,testnum=10,testsize=20,testeff=0.8,testcom=0.8):
         """
         Find average properties across all data types in a run
 
@@ -309,12 +327,13 @@ class read_results(object):
                                 effs[match] = np.mean(self.eff[vals])
                                 coms[match] = np.mean(self.com[vals])
                                 fsil[match] = np.mean(self.fsil[vals])
-                                ffrc[match],recv[match] = self.found_frac()
+                                ffrc[match],recv[match] = self.found_frac(testnum=testnum,testsize=testsize,testeff=testeff,testcom=testeff)
                             self.maxmem = np.max([self.maxmem,np.max(numc)])
                     except KeyError:
                         pass
 
             recv[recv>1] = 1
+            ffrc[numc<1] = -1
 
             self.maxmem = np.max([self.maxmem,tnumc[0]])
             try:
@@ -348,7 +367,7 @@ class read_results(object):
         self.read_dtype_data()
         self.read_run_data(eps=self.epsval,min_sample=self.minval,update=False)
 
-    def found_frac(self,testnum=10,testsize=20,testeff=0.8,testcom=0.8):
+    def found_frac(self,testnum=10,testsize=20,testeff=0.8,testcom=0.8,iters=100):
         """
         For a random selection of true clusters, calculate how many are found accurately by the algorithm
 
@@ -357,31 +376,30 @@ class read_results(object):
         testeff:        minimum efficiency value to be considered a good match
         testcom:        minimum completeness value to be considered a good match
         """
-        if 'tsnum' not in dir(self):
-            self.tsnum = testnum
-        if 'tssize' not in dir(self):
-            self.tssize = testsize
-        if 'tseff' not in dir(self):
-            self.tseff = testeff
-        if 'tscom' not in dir(self):
-            self.tscom = testcom
-        print(self.tsnum,self.tssize,self.tseff,self.tscom,self.matchtlabs)
-        matched = 0
+        self.tsnum = testnum
+        self.tssize = testsize
+        self.tseff = testeff
+        self.tscom = testcom
         # find all true clusters above the size limit
         goodlabels = self.tlabs[self.tsize>self.tssize]
-        # pick the clusters randomly
-        inds = np.random.randint(low=0,high=len(goodlabels),size=self.tsnum)
-        for lab in goodlabels[inds]:
-            if lab in self.matchtlabs:
-                # find inds of all clusters matched to this one
-                matches = np.where(self.matchtlabs == lab) 
-                # find efficiencies and completeness for these clusters
-                effs = self.eff[matches]
-                coms = self.com[matches]
-                # find out if any matches are good enough
-                if np.any(effs>=self.tseff) and np.any(coms>=self.tscom):
-                    matched+=1
-        return float(matched)/self.tsnum, float(len(self.eff))/len(goodlabels)
+        allmatched = np.zeros(iters)
+        for i in range(iters):
+            matched = 0
+            # pick the clusters randomly
+            inds = np.random.randint(low=0,high=len(goodlabels),size=self.tsnum)
+            for lab in goodlabels[inds]:
+                if lab in self.matchtlabs:
+                    # find inds of all clusters matched to this one
+                    matches = np.where(self.matchtlabs == lab) 
+                    # find efficiencies and completeness for these clusters
+                    effs = self.eff[matches]
+                    coms = self.com[matches]
+                    # find out if any matches are good enough
+                    if np.any(effs>=self.tseff) and np.any(coms>=self.tscom):
+                        matched+=1
+            allmatched[i] = matched
+        print(np.median(allmatched)/self.tsnum)
+        return np.median(allmatched)/self.tsnum, float(len(self.eff))/len(goodlabels)
 
     def read_run_data(self,eps=None,min_sample=None,update=False,datatype=None):
         """
@@ -1421,15 +1439,16 @@ button.button_type = 'warning';"""
                              widgetbox(self.activedtype,width=320),
                              self.s5)
             avgplots = row(column(self.s1,
-                                  self.s2,
+                                  self.s7,
                                   self.s8),
-                           column(self.s6,
+                           column(self.s2,
                                   self.s3,
                                   widgetbox(self.testsize,width=390),
                                   widgetbox(self.testnum,width=390),
                                   widgetbox(self.testeff,width=390),
                                   widgetbox(self.testcom,width=390)),
-                           column(self.s7,
+                           column(self.s9,
+                                  self.s10,
                                   self.s4))
             topplots = row(buttons,avgplots)
 
@@ -1543,11 +1562,39 @@ button.button_type = 'warning';"""
         self.s8.background_fill_color = self.bcolor
         for d,dtype in enumerate(self.alldtypes):
             dtype = nametypes[dtype]
-            c8l = self.s8.line(x='xvals',y='recv',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],alpha=0.5)
+            #c8l = self.s8.line(x='xvals',y='recv',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],alpha=0.5)
             c8 = self.s8.scatter(x='xvals',y='ffrac',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
             setattr(self,'{0}_c8'.format(dtype),c8)
-            setattr(self,'{0}_c8l'.format(dtype),c8l)
+            #setattr(self,'{0}_c8l'.format(dtype),c8l)
         self.label_stat_xaxis(self.s8,dtype=self.dtype)
+
+        # Average efficiency
+        self.s9 = figure(plot_width=400,plot_height=250,min_border=10,
+                         x_axis_location='below', y_axis_location='left',
+                         x_axis_type='log',y_axis_type='linear',
+                         toolbar_location=None,
+                         y_range=(-0.03,1.03),y_axis_label='Efficiency',
+                         x_axis_label='Number Found')
+        self.s9.x_range.start = 0.5
+        self.s9.background_fill_color = self.bcolor
+        for d,dtype in enumerate(self.alldtypes):
+            dtype = nametypes[dtype]
+            c9 = self.s9.scatter(x='numc',y='avgeff',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
+            setattr(self,'{0}_c9'.format(dtype),c9)
+
+        # Average efficiency
+        self.s10 = figure(plot_width=400,plot_height=250,min_border=10,
+                         x_axis_location='below', y_axis_location='left',
+                         x_axis_type='log',y_axis_type='linear',
+                         toolbar_location=None,
+                         y_range=(-0.03,1.03),y_axis_label='Completeness',
+                         x_axis_label='Number Found')
+        self.s10.x_range.start = 0.5
+        self.s10.background_fill_color = self.bcolor
+        for d,dtype in enumerate(self.alldtypes):
+            dtype = nametypes[dtype]
+            c10 = self.s10.scatter(x='numc',y='avgcom',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
+            setattr(self,'{0}_c10'.format(dtype),c10)
 
         # Dummy plot to generate the legend
         #items = []
@@ -1595,7 +1642,9 @@ button.button_type = 'warning';"""
             c6 = getattr(self,'{0}_c6'.format(dtype))
             c7 = getattr(self,'{0}_c7'.format(dtype))
             c8 = getattr(self,'{0}_c8'.format(dtype))
-            c8l = getattr(self,'{0}_c8l'.format(dtype))
+            #c8l = getattr(self,'{0}_c8l'.format(dtype))
+            c9 = getattr(self,'{0}_c9'.format(dtype))
+            c10 = getattr(self,'{0}_c10'.format(dtype))
             if ind not in new:
                 c1.visible = False
                 c2.visible = False
@@ -1604,7 +1653,9 @@ button.button_type = 'warning';"""
                 c6.visible = False
                 c7.visible = False
                 c8.visible = False
-                c8l.visible = False
+                #c8l.visible = False
+                c9.visible = False
+                c10.visible = False
             elif ind in new:
                 c1.visible = True
                 c2.visible = True
@@ -1613,7 +1664,9 @@ button.button_type = 'warning';"""
                 c6.visible = True
                 c7.visible = True
                 c8.visible = True
-                c8l.visible = True
+                #c8l.visible = True
+                c9.visible = True
+                c10.visible = True
 
     def buttons(self):
         """
@@ -1665,30 +1718,29 @@ button.button_type = 'warning';"""
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
 
     def updateff(self,attr,old,new):
-        self.tssize = int(self.testsize.value)
+        tssize = int(self.testsize.value)
         self.testnum.title="# true clusters to test, between 1 and {0}:".format(int(np.sum(self.tsize>self.tssize)))
         tsnum = int(self.testnum.value)
-        if tsnum > int(np.sum(self.tsize>self.tssize)):
-            tsnum = int(np.sum(self.tsize>self.tssize))
-        self.tsnum = tsnum
-        self.tseff = float(self.testeff.value)
-        self.tscom = float(self.testcom.value)
+        if tsnum > int(np.sum(self.tsize>tssize)):
+            tsnum = int(np.sum(self.tsize>tssize))
+        tseff = float(self.testeff.value)
+        tscom = float(self.testcom.value)
         num = int(self.minsize.value)
 
-        self.generate_average_stats(minmem=num,minlim=num)
+        self.generate_average_stats(minmem=num,minlim=num,testnum=tsnum,testsize=tssize,testeff=tseff,testcom=tscom)
 
         for dtype in self.alldtypes:
             dtype = nametypes[dtype]
             # extract each plot for this datatype
             ss = getattr(self,'{0}_statsource'.format(dtype))
             c8 = getattr(self,'{0}_c8'.format(dtype))
-            c8l = getattr(self,'{0}_c8l'.format(dtype))
+            #c8l = getattr(self,'{0}_c8l'.format(dtype))
 
             # Change source and update glyphs
 
             c8.data_source.data = ss.data
             c8.glyph.y = 'ffrac'
-            c8l.glyph.y = 'recv'
+            #c8l.glyph.y = 'recv'
 
 
 
@@ -1747,16 +1799,15 @@ button.button_type = 'warning';"""
             self.loadbutton.label = 'No new data to load - try another file'
         elif not self.allbad:
             self.testsize.title = "Size of true clusters to test, between 1 and {0}:".format(int(np.max(self.tsize)))
-            self.tssize = int(self.testsize.value)
+            tssize = int(self.testsize.value)
             self.testnum.title="# true clusters to test, between 1 and {0}:".format(int(np.sum(self.tsize>self.tssize)))
             tsnum = int(self.testnum.value)
-            if tsnum > int(np.sum(self.tsize>self.tssize)):
-                tsnum = int(np.sum(self.tsize>self.tssize))
-            self.tsnum = tsnum
-            self.tseff = float(self.testeff.value)
-            self.tscom = float(self.testcom.value)
+            if tsnum > int(np.sum(self.tsize>tssize)):
+                tsnum = int(np.sum(self.tsize>tssize))
+            tseff = float(self.testeff.value)
+            tscom = float(self.testcom.value)
             # Get new average stats for this run
-            self.generate_average_stats(minmem=int(self.minsize.value),update=True)
+            self.generate_average_stats(minmem=int(self.minsize.value),testnum=tsnum,testsize=tssize,testeff=tseff,testcom=tscom,update=True)
             # Update loadbutton behaviour with new callback arguments (i.e. self.sourcedict has the new data in it in the 'new...' keys)
             self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
             # Change the color/text of the load button to indicate that it's ready
@@ -1773,8 +1824,15 @@ button.button_type = 'warning';"""
         """
         # Find the minimum
         num = int(new)
+        tssize = int(self.testsize.value)
+        self.testnum.title="# true clusters to test, between 1 and {0}:".format(int(np.sum(self.tsize>self.tssize)))
+        tsnum = int(self.testnum.value)
+        if tsnum > int(np.sum(self.tsize>tssize)):
+            tsnum = int(np.sum(self.tsize>tssize))
+        tseff = float(self.testeff.value)
+        tscom = float(self.testcom.value)
         # Recalculate averages - includes natural zeroing if datatype not present
-        self.generate_average_stats(minmem=num,minlim=num)
+        self.generate_average_stats(minmem=num,minlim=num,testnum=tsnum,testsize=tssize,testeff=tseff,testcom=tscom)
         # Cycle through available data types  and update glyphs
         for dtype in self.alldtypes:
             dtype = nametypes[dtype]
@@ -1790,40 +1848,60 @@ button.button_type = 'warning';"""
             c7 = getattr(self,'{0}_c7'.format(dtype))
             c7l = getattr(self,'{0}_c7l'.format(dtype))
             c8 = getattr(self,'{0}_c8'.format(dtype))
-            c8l = getattr(self,'{0}_c8l'.format(dtype))
+            #c8l = getattr(self,'{0}_c8l'.format(dtype))
+            c9 = getattr(self,'{0}_c9'.format(dtype))
+            c10 = getattr(self,'{0}_c10'.format(dtype))
 
             # Change source and update glyphs
 
             # Number of clusters found
             c1.data_source.data = ss.data
             c1.glyph.y = 'numc'
+            c1.glyph.x = 'xvals'
             # Total number of clusters put in
             c1l.data_source.data = ss.data
             c1l.glyph.y = 'tnumc'
+            c1l.glyph.x = 'xvals'
             # Average efficiency
             c2.data_source.data = ss.data
             c2.glyph.y = 'avgeff'
+            c2.glyph.x = 'xvals'
             # Average completeness
             c3.data_source.data = ss.data
             c3.glyph.y = 'avgcom'
+            c3.glyph.x = 'xvals'
             # Average silhouette coefficient
             c4.data_source.data = ss.data
             c4.glyph.y = 'avgfsi'
+            c4.glyph.x = 'xvals'
             # Max cluster size
             c6.data_source.data = ss.data
             c6.glyph.y = 'maxsiz'
+            c6.glyph.x = 'xvals'
             c6l.data_source.data = ss.data
             c6l.glyph.y = 'tmaxs'
+            c6l.glyph.x = 'xvals'
             # Median cluster size
             c7.data_source.data = ss.data
             c7.glyph.y = 'medsiz'
+            c7.glyph.x = 'xvals'
             c7l.data_source.data = ss.data
             c7l.glyph.y = 'tmeds'
+            c7l.glyph.x = 'xvals'
             # Recovery fraction
             c8.data_source.data = ss.data
             c8.glyph.y = 'ffrac'
-            c8l.data_source.data = ss.data
-            c8l.glyph.y = 'recv'
+            c8.glyph.x = 'xvals'
+            #c8l.data_source.data = ss.data
+            #c8l.glyph.y = 'recv'
+            # Average efficiency
+            c9.data_source.data = ss.data
+            c9.glyph.y = 'avgeff'
+            c9.glyph.x = 'numc'
+            # Average efficiency
+            c10.data_source.data = ss.data
+            c10.glyph.y = 'avgcom'
+            c10.glyph.x = 'numc'
 
 
 if __name__ == '__main__':
