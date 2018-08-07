@@ -25,6 +25,8 @@ eps = np.array([0.07,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0])
 min_samples = np.tile(min_samples,len(eps))
 eps = np.repeat(eps,samples)
 
+combelem = ['Mg','Al','Si','S','K','Ca','Ni']
+
 case = caserun(nstars=nstars,sample=sample,abundancefac=abundancefac,
                  spreadchoice=spreadchoice,specfac=specfac,centerfac=centerfac,
                  centerspr=spreads,genfn=choosestruct,
@@ -46,8 +48,17 @@ wind = combine_windows(windows = windows,combelem=combelem,func=np.ma.max)
 case.projspec(wind)
 case.clustering(case.projectspec,'wind',eps,min_samples,metric='precomputed',
                 neighbours = 20,normeps=normeps)
+case.reduction(reduct = PCA, n_components=20)
+case.clustering(case.projectspec,'prin20',eps,min_samples,metric='precomputed',
+                 neighbours = 20,normeps=normeps)
 case.reduction(reduct = PCA, n_components=10)
-case.clustering(case.projectspec,'prin',eps,min_samples,metric='precomputed',
+case.clustering(case.projectspec,'prin10',eps,min_samples,metric='precomputed',
+                 neighbours = 20,normeps=normeps)
+case.reduction(reduct = PCA, n_components=5)
+case.clustering(case.projectspec,'prin5',eps,min_samples,metric='precomputed',
+                 neighbours = 20,normeps=normeps)
+case.reduction(reduct = PCA, n_components=2)
+case.clustering(case.projectspec,'prin2',eps,min_samples,metric='precomputed',
                  neighbours = 20,normeps=normeps)
 
 end = time.time()
