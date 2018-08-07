@@ -99,7 +99,10 @@ def combine_windows(windows = tophats,combelem=elem,func=np.ma.mean):
     windows = windows[abuninds(elem,combelem)]
     mask = windows == 0
     windows = np.ma.masked_array(windows,mask=mask)
-    combspec = func(windows,axis=0)
+    if func == np.ma.mean:
+        combspec = func(windows,axis=0)
+    elif func == np.ma.max:
+        combspec = func(windows.data,axis=0)
     return combspec.data
 
 
