@@ -45,7 +45,8 @@ typenames = {'spec':'spectra',
              'prin2':'2 principal components',
              'prin5':'5 principal components',
              'prin10':'10 principal components',
-             'prin20':'2 principal components'}
+             'prin20':'20 principal components',
+             'prin50':'50 principal components'}
 nametypes = {'spectra':'spec',
              'abundances':'abun',
              'reduced abundances':'reda',
@@ -55,12 +56,23 @@ nametypes = {'spectra':'spec',
              '2 principal components':'prin2',
              '5 principal components':'prin5',
              '10 principal components':'prin10',
-             '20 principal components':'prin20',}
+             '20 principal components':'prin20',
+             '50 principal components':'prin50'}
 
 #             orange     purple     blue        red       green     pink
-colorlist = ["#F98D20", "#904C77", "#79ADDC", "#ED6A5A", "#8ADD37","#EF518B"] 
+colorlist = ["#F98D20", "#904C77", "#79ADDC", "#ED6A5A", "#8ADD37","#EF518B","#F26DF9","#A9F0D1","#3B3561","#00BFB2"] 
 
-typecolor = {'spec':"#F98D20",'abun':"#904C77",'reda':"#EF518B",'toph':"#79ADDC",'wind':"#ED6A5A",'prin':"#8ADD37"}
+typecolor = {'spec':"#F98D20",
+             'abun':"#904C77",
+             'reda':"#EF518B",
+             'toph':"#79ADDC",
+             'wind':"#ED6A5A",
+             'prin':"#8ADD37",
+             'prin2':"#F26DF9",
+             'prin5':"#A9F0D1",
+             'prin10':"#3B3561",
+             'prin20':"#00BFB2",
+             'prin50':"#3A1772"}
 
 zp = {'Efficiency':5e-3,'Completeness':5e-3,'Found Silhouette':5e-3,'Matched Silhouette':5e-3,'Found Size':0.5,'Matched Size':0.5}
 lzp=1e-3
