@@ -19,7 +19,7 @@ seps = np.array([0.5,0.6,0.7,0.8,0.9,1.0])
 smin = np.array([2]*len(seps))
 aeps = np.array([0.3,0.4,0.5,0.6,0.7])
 amin = np.array([2]*len(aeps))
-peps = np.array([0.04,0.06,0.08,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0])
+peps = np.array([0.01,0.02,0.04,0.06,0.08,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0])
 pmin = np.array([2]*len(peps))
 
 combelem = ['Mg','Al','Si','S','K','Ca','Ni']
@@ -51,11 +51,8 @@ case.clustering(case.projectspec,'prin20',peps,pmin,metric='precomputed',
 case.reduction(reduct = PCA, n_components=10)
 case.clustering(case.projectspec,'prin10',peps,pmin,metric='precomputed',
                  neighbours = 20,normeps=normeps)
-case.reduction(reduct = PCA, n_components=5)
-case.clustering(case.projectspec,'prin5',peps,pmin,metric='precomputed',
-                 neighbours = 20,normeps=normeps)
-case.reduction(reduct = PCA, n_components=2)
-case.clustering(case.projectspec,'prin2',peps,pmin,metric='precomputed',
+case.reduction(reduct = PCA, n_components=50)
+case.clustering(case.projectspec,'prin50',peps,pmin,metric='precomputed',
                  neighbours = 20,normeps=normeps)
 
 end = time.time()
