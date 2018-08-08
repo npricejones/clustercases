@@ -248,8 +248,8 @@ class caserun(object):
         dsetname = 'normalgeneration/labels_true_{0}'.format(self.clusters.timestamps[0].decode('UTF-8'))
         self.datafile[dsetname] = self.labels_true
 
-    def create_stars(self,abundancefac,spreadchoice,specfac,phvary=True):
-
+    def gen_abundances(self,abundancefac,spreadchoice):
+        
         # Create abundances
         self.abundances = normalgeneration(num=self.mem,numprop=15,
                                            centers=np.repeat(self.centers,
@@ -257,6 +257,9 @@ class caserun(object):
                                                              axis=0),
                                            stds = abundancefac*spreadchoice)
 
+    def create_stars(self,abundancefac,spreadchoice,specfac,phvary=True):
+
+        self.gen_abundances(abundancefac,spreadchoice)
         # Load in APOGEE data to generate stars with
         apodat = np.load(self.sample)
         # Figure out which APOGEE stars you want

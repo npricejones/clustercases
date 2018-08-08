@@ -37,6 +37,11 @@ case.clustering(case.abundances,'abun',aeps,amin,metric='precomputed',
                 neighbours = 20,normeps=normeps)
 case.clustering((case.abundances.T[abuninds(elem,combelem)]).T,'reda',aeps,amin,metric='precomputed',
                 neighbours = 20,normeps=normeps)
+case.gen_abundances(abundancefac,tingspr)
+case.clustering(case.abundances,'tabn',aeps,amin,metric='precomputed',
+                neighbours = 20,normeps=normeps)
+case.clustering((case.abundances.T[abuninds(elem,combelem)]).T,'trda',aeps,amin,metric='precomputed',
+                neighbours = 20,normeps=normeps)
 toph = combine_windows(windows = tophats,combelem=elem,func=np.ma.any)
 case.projspec(toph)
 case.clustering(case.projectspec,'toph',seps,smin,metric='precomputed',
