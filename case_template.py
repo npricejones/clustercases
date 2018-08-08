@@ -240,9 +240,9 @@ class caserun(object):
                                          centers=np.zeros(15),
                                          stds=np.ones(15)*centerspr)
         self.datafile = h5py.File(self.clusters.synfilename,'r+')
-        self.centers = self.datafile['center_abundances_'+self.clusters.timestamps[0].decode('UTF-8')]
+        self.centers = self.datafile['center_abundances_'+self.clusters.timestamps[0].decode('UTF-8')][:]
 
-        self.centers[:]*=centerfac
+        self.centers*=centerfac
 
         # Save true labels
         dsetname = 'normalgeneration/labels_true_{0}'.format(self.clusters.timestamps[0].decode('UTF-8'))
@@ -252,7 +252,7 @@ class caserun(object):
         
         # Create abundances
         self.abundances = normalgeneration(num=self.mem,numprop=15,
-                                           centers=np.repeat(self.centers[:],
+                                           centers=np.repeat(self.centers,
                                                              self.numm,
                                                              axis=0),
                                            stds = abundancefac*spreadchoice)
