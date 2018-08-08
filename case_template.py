@@ -250,8 +250,12 @@ class caserun(object):
 
     def gen_abundances(self,abundancefac,spreadchoice):
         
-        centers=np.repeat(self.centers,self.numm,axis=0)
-        self.abundances = np.random.randn(self.mem,15)*abundancefac*spreadchoice + centers
+        # Create abundances
+        self.abundances = normalgeneration(num=self.mem,numprop=15,
+                                           centers=np.repeat(self.centers[:],
+                                                             self.numm,
+                                                             axis=0),
+                                           stds = abundancefac*spreadchoice)
 
     def create_stars(self,abundancefac,spreadchoice,specfac,phvary=True):
 
