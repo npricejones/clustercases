@@ -42,22 +42,26 @@ typenames = {'spec':'spectra',
              'toph':'tophat windows',
              'wind':'windows',
              'prin':'principal components',
-             'prin2':'2 principal components',
-             'prin5':'5 principal components',
+             'prin2':'02 principal components',
+             'prin5':'05 principal components',
              'prin10':'10 principal components',
              'prin20':'20 principal components',
-             'prin50':'50 principal components'}
+             'prin50':'50 principal components',
+             'tabn':'ting abundances',
+             'trda':'reduced ting abundances'}
 nametypes = {'spectra':'spec',
              'abundances':'abun',
              'reduced abundances':'reda',
              'tophat windows':'toph',
              'windows':'wind',
              'principal components':'prin',
-             '2 principal components':'prin2',
-             '5 principal components':'prin5',
+             '02 principal components':'prin2',
+             '05 principal components':'prin5',
              '10 principal components':'prin10',
              '20 principal components':'prin20',
-             '50 principal components':'prin50'}
+             '50 principal components':'prin50',
+             'ting abundances':'tabn',
+             'reduced ting abundances':'trda'}
 
 #             orange     purple     blue        red       green     pink
 colorlist = ["#F98D20", "#904C77", "#79ADDC", "#ED6A5A", "#8ADD37","#EF518B","#F26DF9","#A9F0D1","#3B3561","#00BFB2"] 
@@ -72,7 +76,9 @@ typecolor = {'spec':"#F98D20",
              'prin5':"#A9F0D1",
              'prin10':"#3B3561",
              'prin20':"#00BFB2",
-             'prin50':"#3A1772"}
+             'prin50':"#3A1772",
+             'tabn':"#79ADDC",
+             'trda':"#ED6A5A"}
 
 zp = {'Efficiency':5e-3,'Completeness':5e-3,'Found Silhouette':5e-3,'Matched Silhouette':5e-3,'Found Size':0.5,'Matched Size':0.5}
 lzp=1e-3
@@ -184,6 +190,7 @@ class read_results(object):
         self.alldtypes = []
         for dtype in alldtypes:
             self.alldtypes.append(typenames[dtype])
+        self.alldtypes = list(np.sort(self.alldtypes))
 
         # read in the true cluster labels for this file
         self.tlabs = np.unique(self.data['labels_true'][:])
@@ -264,7 +271,7 @@ class read_results(object):
             self.ticklabels.append('{0}, {1}'.format(self.eps[i],self.min_samples[i]))
         self.paramlist = list(np.array(self.paramchoices)[self.goodinds])
 
-    def generate_average_stats(self,minmem=1,update=False,testnum=10,testsize=20,testeff=0.8,testcom=0.8):
+    def generate_average_stats(self,minmem=1,update=False,testnum=10,testsize=20,testeff=0.8,testcom=0.8,iters=1):
         """
         Find average properties across all data types in a run
 
@@ -294,11 +301,12 @@ class read_results(object):
         labmaster = np.unique(np.array([item for sublist in labmaster for item in sublist]))
         
         # create list of xvalues to find where ticks should be plotted
-        xvals = np.arange(len(labmaster))
+        self.xvals = np.arange(len(labmaster))
         jitter = np.linspace(-jitterval,jitterval,len(list(nametypes.keys())))
 
         # for each data type, create array to hold result of the runs
         for d,dtype in enumerate(list(nametypes.keys())):
+            print(dtype)
             dtype = nametypes[dtype]
 
             # Initialize arrays
@@ -311,7 +319,7 @@ class read_results(object):
             stds = np.zeros(len(labmaster))
             maxs = 0.01*np.ones(len(labmaster))
             ffrc = np.zeros(len(labmaster))
-            txvals = xvals+jitter[d]
+            txvals = self.xvals+jitter[d]
 
             # Calculate the true number of clusters above a given limit
             tnumc = np.array([len(self.tsize[self.tsize>minmem])]*len(labmaster))
@@ -339,7 +347,7 @@ class read_results(object):
                                 effs[match] = np.mean(self.eff[vals])
                                 coms[match] = np.mean(self.com[vals])
                                 fsil[match] = np.mean(self.fsil[vals])
-                                ffrc[match],recv[match] = self.found_frac(testnum=testnum,testsize=testsize,testeff=testeff,testcom=testeff)
+                                ffrc[match],recv[match] = self.found_frac(testnum=testnum,testsize=testsize,testeff=testeff,testcom=testeff,iters=iters)
                             self.maxmem = np.max([self.maxmem,np.max(numc)])
                     except KeyError:
                         pass
@@ -357,15 +365,19 @@ class read_results(object):
                 tmeds = np.array([0.01]*len(labmaster))
             # If the true number of clusters above the limit is None, move out of plot range
             tnumc[tnumc < 1] = 0.01
+            ufrac = ffrc+recv
+            ufrac[ufrac >1] = 1
+            lfrac = ffrc-recv
+            match = np.where((lfrac < 0) & (numc >= 1))
+            lfrac[match] = 0
             # Create dictionary for plotting
-            print(ffrc-recv,ffrc,ffrc+recv)
             statsource = {'params':labmaster,'numc':numc,
                                'avgeff':effs,'avgcom':coms,
                                'avgfsi':fsil,'maxsiz':maxs,
                                'xvals':txvals,'medsiz':meds,
                                'tmaxs':tmaxs,'tmeds':tmeds,
                                'tnumc':tnumc,'ffrac':ffrc,
-                               'ufrac':ffrc+recv,'lfrac':ffrc-recv}
+                               'ufrac':ufrac,'lfrac':lfrac}
             # Add ColumnDataSource object to class
             setattr(self,'{0}_statsource'.format(dtype),ColumnDataSource(statsource))
 
@@ -380,7 +392,7 @@ class read_results(object):
         self.read_dtype_data()
         self.read_run_data(eps=self.epsval,min_sample=self.minval,update=False)
 
-    def found_frac(self,testnum=10,testsize=20,testeff=0.8,testcom=0.8,iters=1000):
+    def found_frac(self,testnum=10,testsize=20,testeff=0.8,testcom=0.8,iters=1,replace=False):
         """
         For a random selection of true clusters, calculate how many are found accurately by the algorithm
 
@@ -399,7 +411,7 @@ class read_results(object):
         for i in range(iters):
             matched = 0
             # pick the clusters randomly
-            inds = np.random.randint(low=0,high=len(goodlabels),size=self.tsnum)
+            inds = np.random.choice(len(goodlabels),self.tsnum,replace=replace)
             for lab in goodlabels[inds]:
                 if lab in self.matchtlabs:
                     # find inds of all clusters matched to this one
@@ -411,7 +423,6 @@ class read_results(object):
                     if np.any(effs>=self.tseff) and np.any(coms>=self.tscom):
                         matched+=1
             allmatched[i] = matched
-        print(np.mean(allmatched)/self.tsnum,np.std(allmatched)/self.tsnum)
         return np.mean(allmatched)/self.tsnum, np.std(allmatched)/self.tsnum
 
     def read_run_data(self,eps=None,min_sample=None,update=False,datatype=None):
@@ -1460,7 +1471,8 @@ button.button_type = 'warning';"""
                                   widgetbox(self.testsize,width=390),
                                   widgetbox(self.testnum,width=390),
                                   widgetbox(self.testeff,width=390),
-                                  widgetbox(self.testcom,width=390)),
+                                  widgetbox(self.testcom,width=390),
+                                  widgetbox(self.testitr,width=390)),
                            column(self.s9,
                                   self.s10,
                                   self.s4))
@@ -1488,13 +1500,13 @@ button.button_type = 'warning';"""
                          y_axis_label='Number Found')
         self.s1.y_range.start = 0.5
         self.s1.background_fill_color = self.bcolor
-        for d,dtype in enumerate(self.alldtypes):
+        for d,dtype in enumerate(list(nametypes.keys())):
             dtype = nametypes[dtype]
             c1l = self.s1.line(x='xvals',y='tnumc',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.outcolor,alpha=0.1)
             c1 = self.s1.scatter(x='xvals',y='numc',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
             setattr(self,'{0}_c1'.format(dtype),c1)
             setattr(self,'{0}_c1l'.format(dtype),c1l)
-        self.label_stat_xaxis(self.s1,dtype=self.dtype)
+        self.label_stat_xaxis(self.s1)
 
         # Average efficiency
         self.s2 = figure(plot_width=400,plot_height=250,min_border=10,
@@ -1503,11 +1515,11 @@ button.button_type = 'warning';"""
                          toolbar_location=None,
                          y_range=(-0.03,1.03),y_axis_label='Efficiency')
         self.s2.background_fill_color = self.bcolor
-        for d,dtype in enumerate(self.alldtypes):
+        for d,dtype in enumerate(list(nametypes.keys())):
             dtype = nametypes[dtype]
             c2 = self.s2.scatter(x='xvals',y='avgeff',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
             setattr(self,'{0}_c2'.format(dtype),c2)
-        self.label_stat_xaxis(self.s2,dtype=self.dtype)
+        self.label_stat_xaxis(self.s2)
 
         # Average completeness
         self.s3 = figure(plot_width=400,plot_height=250,min_border=10,
@@ -1516,11 +1528,11 @@ button.button_type = 'warning';"""
                          toolbar_location=None,
                          y_range=(-0.03,1.03),y_axis_label='Completeness')
         self.s3.background_fill_color = self.bcolor
-        for d,dtype in enumerate(self.alldtypes):
+        for d,dtype in enumerate(list(nametypes.keys())):
             dtype = nametypes[dtype]
             c3 = self.s3.scatter(x='xvals',y='avgcom',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
             setattr(self,'{0}_c3'.format(dtype),c3)
-        self.label_stat_xaxis(self.s3,dtype=self.dtype)
+        self.label_stat_xaxis(self.s3)
 
         # Average silhouette coefficient
         self.s4 = figure(plot_width=400,plot_height=250,min_border=10,
@@ -1529,11 +1541,11 @@ button.button_type = 'warning';"""
                          toolbar_location=None,
                          y_range=(-1.06,1.06),y_axis_label='Found Silhouette')
         self.s4.background_fill_color = self.bcolor
-        for d,dtype in enumerate(self.alldtypes):
+        for d,dtype in enumerate(list(nametypes.keys())):
             dtype = nametypes[dtype]
             c4 = self.s4.scatter(x='xvals',y='avgfsi',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
             setattr(self,'{0}_c4'.format(dtype),c4)
-        self.label_stat_xaxis(self.s4,dtype=self.dtype)
+        self.label_stat_xaxis(self.s4)
 
         # Max cluster sizes
         self.s6 = figure(plot_width=400,plot_height=250,min_border=10,
@@ -1543,13 +1555,13 @@ button.button_type = 'warning';"""
                          y_axis_label='Max cluster size')
         self.s6.y_range.start = 0.5
         self.s6.background_fill_color = self.bcolor
-        for d,dtype in enumerate(self.alldtypes):
+        for d,dtype in enumerate(list(nametypes.keys())):
             dtype = nametypes[dtype]
             c6l = self.s6.line(x='xvals',y='tmaxs',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.outcolor,alpha=0.1)
             c6 = self.s6.scatter(x='xvals',y='maxsiz',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
             setattr(self,'{0}_c6'.format(dtype),c6)
             setattr(self,'{0}_c6l'.format(dtype),c6l)
-        self.label_stat_xaxis(self.s6,dtype=self.dtype)
+        self.label_stat_xaxis(self.s6)
 
         # Median cluster sizes
         self.s7 = figure(plot_width=400,plot_height=250,min_border=10,
@@ -1559,13 +1571,13 @@ button.button_type = 'warning';"""
                          y_axis_label='Median cluster size')
         self.s7.y_range.start = 0.5
         self.s7.background_fill_color = self.bcolor
-        for d,dtype in enumerate(self.alldtypes):
+        for d,dtype in enumerate(list(nametypes.keys())):
             dtype = nametypes[dtype]
             c7l = self.s7.line(x='xvals',y='tmeds',source=getattr(self,'{0}_statsource'.format(dtype)),color=self.outcolor,alpha=0.1)
             c7 = self.s7.scatter(x='xvals',y='medsiz',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
             setattr(self,'{0}_c7'.format(dtype),c7)
             setattr(self,'{0}_c7l'.format(dtype),c7l)
-        self.label_stat_xaxis(self.s7,dtype=self.dtype)
+        self.label_stat_xaxis(self.s7)
 
         # Average completeness
         self.s8 = figure(plot_width=400,plot_height=250,min_border=10,
@@ -1574,7 +1586,7 @@ button.button_type = 'warning';"""
                          toolbar_location=None,
                          y_range=(-0.03,1.03),y_axis_label='Recovery fraction')
         self.s8.background_fill_color = self.bcolor
-        for d,dtype in enumerate(self.alldtypes):
+        for d,dtype in enumerate(list(nametypes.keys())):
             dtype = nametypes[dtype]
             w8 = Whisker(source=getattr(self,'{0}_statsource'.format(dtype)), base="xvals", upper="ufrac", lower="lfrac",line_color=typecolor[dtype],line_alpha=0.6)
             w8.upper_head.line_color=typecolor[dtype]
@@ -1585,7 +1597,7 @@ button.button_type = 'warning';"""
             setattr(self,'{0}_c8'.format(dtype),c8)
             setattr(self,'{0}_w8'.format(dtype),w8)
             #setattr(self,'{0}_c8l'.format(dtype),c8l)
-        self.label_stat_xaxis(self.s8,dtype=self.dtype)
+        self.label_stat_xaxis(self.s8)
 
         # Average efficiency
         self.s9 = figure(plot_width=400,plot_height=250,min_border=10,
@@ -1596,7 +1608,7 @@ button.button_type = 'warning';"""
                          x_axis_label='Number Found')
         self.s9.x_range.start = 0.5
         self.s9.background_fill_color = self.bcolor
-        for d,dtype in enumerate(self.alldtypes):
+        for d,dtype in enumerate(list(nametypes.keys())):
             dtype = nametypes[dtype]
             c9 = self.s9.scatter(x='numc',y='avgeff',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
             setattr(self,'{0}_c9'.format(dtype),c9)
@@ -1610,7 +1622,7 @@ button.button_type = 'warning';"""
                          x_axis_label='Number Found')
         self.s10.x_range.start = 0.5
         self.s10.background_fill_color = self.bcolor
-        for d,dtype in enumerate(self.alldtypes):
+        for d,dtype in enumerate(list(nametypes.keys()) ):
             dtype = nametypes[dtype]
             c10 = self.s10.scatter(x='numc',y='avgcom',source=getattr(self,'{0}_statsource'.format(dtype)),color=typecolor[dtype],size=5,alpha=0.6)
             setattr(self,'{0}_c10'.format(dtype),c10)
@@ -1643,52 +1655,51 @@ button.button_type = 'warning';"""
         plot:       figure object with x-axis to relabel
         """
         ss = getattr(self,'{0}_statsource'.format(dtype))
-        xvals = list(ss.data['xvals'])
+        txvals = list(ss.data['xvals'])
         param = list(ss.data['params'])
-        plot.xaxis.ticker = xvals
-        overrides = dict(zip(list(np.array(xvals).astype(str)), param))
+        plot.xaxis.ticker = txvals
+        overrides = dict(zip(list(np.array(txvals).astype(str)), param))
         plot.xaxis.major_label_overrides = overrides 
         plot.xaxis.major_label_orientation = np.pi/4
 
     def hidedata(self,attr,old,new):
-        for dtype in self.alldtypes:
-            ind = list(self.alldtypes).index(dtype)
+        for d,dtype in enumerate(list(nametypes.keys())):  
+            dtypevis = False
+            if dtype in self.alldtypes:
+                i = np.where(dtype == np.array(self.alldtypes))
+                ind = i[0][0]
+                if ind in new:
+                    dtypevis = True
             dtype = nametypes[dtype]
+            
             c1 = getattr(self,'{0}_c1'.format(dtype))
+            c1l = getattr(self,'{0}_c1l'.format(dtype))
             c2 = getattr(self,'{0}_c2'.format(dtype))
             c3 = getattr(self,'{0}_c3'.format(dtype))
             c4 = getattr(self,'{0}_c4'.format(dtype))
             c6 = getattr(self,'{0}_c6'.format(dtype))
+            c6l = getattr(self,'{0}_c6l'.format(dtype))
             c7 = getattr(self,'{0}_c7'.format(dtype))
+            c7l = getattr(self,'{0}_c7l'.format(dtype))
             c8 = getattr(self,'{0}_c8'.format(dtype))
             w8 = getattr(self,'{0}_w8'.format(dtype))
             #c8l = getattr(self,'{0}_c8l'.format(dtype))
             c9 = getattr(self,'{0}_c9'.format(dtype))
             c10 = getattr(self,'{0}_c10'.format(dtype))
-            if ind not in new:
-                c1.visible = False
-                c2.visible = False
-                c3.visible = False
-                c4.visible = False
-                c6.visible = False
-                c7.visible = False
-                c8.visible = False
-                w8.visible = False
-                #c8l.visible = False
-                c9.visible = False
-                c10.visible = False
-            elif ind in new:
-                c1.visible = True
-                c2.visible = True
-                c3.visible = True
-                c4.visible = True
-                c6.visible = True
-                c7.visible = True
-                c8.visible = True
-                w8.visible = True
-                #c8l.visible = True
-                c9.visible = True
-                c10.visible = True
+            c1.visible = dtypevis
+            c1l.visible = dtypevis
+            c2.visible = dtypevis
+            c3.visible = dtypevis
+            c4.visible = dtypevis
+            c6.visible = dtypevis
+            c6l.visible = dtypevis
+            c7.visible = dtypevis
+            c7l.visible = dtypevis
+            c8.visible = dtypevis
+            w8.visible = dtypevis
+            #c8l.visible = dtypevis
+            c9.visible = dtypevis
+            c10.visible = dtypevis
 
     def buttons(self):
         """
@@ -1725,8 +1736,12 @@ button.button_type = 'warning';"""
         self.testcom = TextInput(value="0.8", title="Min completeness for found fraction, between 0 and 1:")
         self.testcom.on_change('value',self.updateff)
 
+        self.testitr = TextInput(value='1',title="How many times should I sample?")
+        self.testitr.on_change('value',self.updateff)
+
         # A status button
-        self.statbutton = Button(label="No recovery fraction calcuation in progress", button_type='default')
+        self.statbutton = Button(label="Click to recompute", button_type='default')
+        self.statbutton.on_click(self.recompute)
 
         # Create drop down menu for possible cases
         self.selectcase = Select(title='case',value=self.case,options=list(cases))
@@ -1742,8 +1757,10 @@ button.button_type = 'warning';"""
         self.JScallback()
         self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
 
+    def recompute(self):
+        self.updateff('value',1,2)
+
     def updateff(self,attr,old,new):
-        print('I was supposed to change a button')
         self.statbutton.label="Calculating recovery fraction"
         self.statbutton.button_type='danger'
         tssize = int(self.testsize.value)
@@ -1753,9 +1770,10 @@ button.button_type = 'warning';"""
             tsnum = int(np.sum(self.tsize>tssize))
         tseff = float(self.testeff.value)
         tscom = float(self.testcom.value)
+        itrs = int(self.testitr.value)
         num = int(self.minsize.value)
 
-        self.generate_average_stats(minmem=num,testnum=tsnum,testsize=tssize,testeff=tseff,testcom=tscom)
+        self.generate_average_stats(minmem=num,testnum=tsnum,testsize=tssize,testeff=tseff,testcom=tscom,iters=itrs)
 
         for dtype in self.alldtypes:
             dtype = nametypes[dtype]
@@ -1774,7 +1792,7 @@ button.button_type = 'warning';"""
             w8.lower = 'lfrac'
             #c8l.glyph.y = 'recv'
 
-        self.statbutton.label="No recovery fraction calcuation in progress"
+        self.statbutton.label="Click to recompute"
         self.statbutton.button_type='default'
 
     def updatecase(self,attr,old,new):
@@ -1839,8 +1857,25 @@ button.button_type = 'warning';"""
                 tsnum = int(np.sum(self.tsize>tssize))
             tseff = float(self.testeff.value)
             tscom = float(self.testcom.value)
+            itrs = int(self.testitr.value)
             # Get new average stats for this run
-            self.generate_average_stats(minmem=int(self.minsize.value),testnum=tsnum,testsize=tssize,testeff=tseff,testcom=tscom,update=True)
+            self.generate_average_stats(minmem=int(self.minsize.value),testnum=tsnum,testsize=tssize,testeff=tseff,testcom=tscom,iters=itrs,update=True)
+            actives = self.activedtype.active
+            activeinds = []
+            for a in actives:
+                if self.activedtype.labels[a] in self.alldtypes:
+                    b = np.where(self.activedtype.labels[a] == np.array(self.alldtypes))
+                    activeinds.append(b[0][0])
+            print(np.array(self.alldtypes)[activeinds])
+            self.activedtype.labels = self.alldtypes
+            self.activedtype.active = list(np.arange(len(self.alldtypes))[activeinds])
+            self.label_stat_xaxis(self.s1)
+            self.label_stat_xaxis(self.s2)
+            self.label_stat_xaxis(self.s3)
+            self.label_stat_xaxis(self.s4)
+            self.label_stat_xaxis(self.s6)
+            self.label_stat_xaxis(self.s7)
+            self.label_stat_xaxis(self.s8)
             # Update loadbutton behaviour with new callback arguments (i.e. self.sourcedict has the new data in it in the 'new...' keys)
             self.loadbutton.callback = CustomJS(args=self.sourcedict,code=self.callbackstr)
             # Change the color/text of the load button to indicate that it's ready
@@ -1864,8 +1899,9 @@ button.button_type = 'warning';"""
             tsnum = int(np.sum(self.tsize>tssize))
         tseff = float(self.testeff.value)
         tscom = float(self.testcom.value)
+        itrs = int(self.testitr.value)
         # Recalculate averages - includes natural zeroing if datatype not present
-        self.generate_average_stats(minmem=num,testnum=tsnum,testsize=tssize,testeff=tseff,testcom=tscom)
+        self.generate_average_stats(minmem=num,testnum=tsnum,testsize=tssize,testeff=tseff,testcom=tscom,iters=itrs)
         # Cycle through available data types  and update glyphs
         for dtype in self.alldtypes:
             dtype = nametypes[dtype]
