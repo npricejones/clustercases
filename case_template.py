@@ -251,7 +251,6 @@ class caserun(object):
     def gen_abundances(self,abundancefac,spreadchoice):
         
         # Create abundances
-        print(self.centers)
         self.abundances = normalgeneration(num=self.mem,numprop=15,
                                            centers=np.repeat(self.centers[:],
                                                              self.numm,
@@ -320,7 +319,6 @@ class caserun(object):
         # Save spectra
         dsetname = 'normalgeneration/member_spectra_{0}'.format(self.clusters.timestamps[0].decode('UTF-8'))
         self.datafile[dsetname] = self.specinfo.spectra
-        self.datafile.close()
 
     def plotfile(self):
         self.pfname = 'case{0}_{1}.hdf5'.format(self.case,
@@ -419,6 +417,7 @@ class caserun(object):
         self.plot['{0}_cbn'.format(name)] = cbn
 
     def finish(self):
+        self.datafile.close()
         self.plot.close()
         print('I saved everything in {0}'.format(self.pfname))
 
