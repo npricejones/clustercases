@@ -2,7 +2,7 @@ from case_template import *
 
 # run parameters                                                               
 nstars = 1e4 # number of stars                                                 
-sample='allStar_chemscrub_teffcut.npy' # APOGEE sample to draw from                    
+sample='allStar_chemscrub_teffcut_dr14.npy' # APOGEE sample to draw from                    
 abundancefac = 1 # scaling factor for abundance noise                          
 specfac = 0.01 # scaling factor for spectra noise                              
 centerfac = 1
@@ -15,15 +15,14 @@ crossfitatms = [6,7,8,26] # atomic numbers of cross terms
 spreadchoice = spreads # choose which abudance spreads to employ
 
 # DBSCAN parameters                                                             
-min_samples = np.array([2,3])
-samples = len(min_samples)
-lg = np.arange(-3,1)
-eps = [i*10.**lg for i in [1,5]]
-eps = np.concatenate((eps[0],eps[1]))
-eps.sort()
-eps = np.array([0.07,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0])
-min_samples = np.tile(min_samples,len(eps))
-eps = np.repeat(eps,samples)
+seps = np.array([0.5,0.6,0.7,0.8,0.9,1.0])
+smin = np.array([2]*len(seps))
+aeps = np.array([0.3,0.4,0.5,0.6,0.7])
+amin = np.array([2]*len(aeps))
+peps = np.array([0.01,0.02,0.04,0.05,0.06,0.07,0.08,0.09,0.1,0.15,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0])
+pmin = np.array([2]*len(peps))
+
+combelem = ['Mg','Al','Si','S','K','Ca','Ni']
 
 case = caserun(nstars=nstars,sample=sample,abundancefac=abundancefac,
                  spreadchoice=spreadchoice,specfac=specfac,centerfac=centerfac,
@@ -32,22 +31,36 @@ case = caserun(nstars=nstars,sample=sample,abundancefac=abundancefac,
                  crossfitkeys=crossfitkeys,crossfitatms=crossfitatms,
                  phvary=True,fitspec=True,case='14')
 start = time.time()
-case.clustering(case.specinfo.spectra,'spec',eps,min_samples,metric='precomputed',
+case.clustering(case.specinfo.spectra,'spec',peps,pmin,metric='precomputed',
                 neighbours = 20,normeps=normeps)
-case.clustering(case.abundances,'abun',eps,min_samples,metric='precomputed',
+case.clustering(case.abundances,'abun',peps,pmin,metric='precomputed',
                 neighbours = 20,normeps=normeps)
-case.clustering((case.abundances.T[abuninds(elem,combelem)]).T,'reda',eps,min_samples,metric='precomputed',
+case.clustering((case.abundances.T[abuninds(elem,combelem)]).T,'reda',peps,pmin,metric='precomputed',
+                neighbours = 20,normeps=normeps)
+case.gen_abundances(1,tingspr)
+case.clustering(case.abundances,'tabn',peps,pmin,metric='precomputed',
+                neighbours = 20,normeps=normeps)
+case.clustering((case.abundances.T[abuninds(elem,combelem)]).T,'trda',peps,pmin,metric='precomputed',
                 neighbours = 20,normeps=normeps)
 toph = combine_windows(windows = tophats,combelem=elem,func=np.ma.any)
 case.projspec(toph)
-case.clustering(case.projectspec,'toph',eps,min_samples,metric='precomputed',
+case.clustering(case.projectspec,'toph',seps,smin,metric='precomputed',
                 neighbours = 20,normeps=normeps)
 wind = combine_windows(windows = windows,combelem=combelem,func=np.ma.max)
 case.projspec(wind)
-case.clustering(case.projectspec,'wind',eps,min_samples,metric='precomputed',
+case.clustering(case.projectspec,'wind',seps,smin,metric='precomputed',
                 neighbours = 20,normeps=normeps)
+case.reduction(reduct = PCA, n_components=20)
+case.clustering(case.projectspec,'prin20',peps,pmin,metric='precomputed',
+                 neighbours = 20,normeps=normeps)
 case.reduction(reduct = PCA, n_components=10)
-case.clustering(case.projectspec,'prin',eps,min_samples,metric='precomputed',
+case.clustering(case.projectspec,'prin10',peps,pmin,metric='precomputed',
+                 neighbours = 20,normeps=normeps)
+case.reduction(reduct = PCA, n_components=30)
+case.clustering(case.projectspec,'prin30',peps,pmin,metric='precomputed',
+                 neighbours = 20,normeps=normeps)
+case.reduction(reduct = PCA, n_components=50)
+case.clustering(case.projectspec,'prin50',peps,pmin,metric='precomputed',
                  neighbours = 20,normeps=normeps)
 
 end = time.time()
