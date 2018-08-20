@@ -350,7 +350,7 @@ class caserun(object):
                     vec = np.tile(r,(self.mem,1))
                     self.projectspec += e*vec*self.specinfo.spectra
 
-    def clustering(self,arr,name,eps,min_samples,metric='precomputed',neighbours = 20,normeps=False):
+    def clustering(self,arr,name,eps,min_samples,metric='precomputed',neighbours = 20,normeps=False,n_jobs=1):
 
         self.plot.attrs['{0}_min'.format(name)] = min_samples
         self.plot.attrs['{0}_eps'.format(name)] = eps
@@ -371,7 +371,7 @@ class caserun(object):
             if metric =='precomputed':
                 if not normeps:
                     db = DBSCAN(min_samples=min_samples[i],
-                                eps=eps[i],
+                                eps=eps[i],n_jobs=n_jobs,
                                 metric='precomputed').fit(distances)
                 elif normeps:
                     db = DBSCAN(min_samples=min_samples[i],
@@ -379,7 +379,7 @@ class caserun(object):
                                 metric='precomputed').fit(distances)
             elif metric!='precomputed':
                 db = DBSCAN(min_samples=min_samples[i],
-                            eps=eps[i],
+                            eps=eps[i],n_jobs=n_jobs,
                             metric=metric).fit(arr)
             pcount,plabs = membercount(db.labels_)
             bad = np.where(plabs==-1)
