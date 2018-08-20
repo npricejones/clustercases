@@ -424,6 +424,7 @@ class caserun(object):
 if __name__=='__main__':
     case7 = caserun()
     start = time.time()
+    """
     case7.clustering(case7.specinfo.spectra,'spec',eps,min_samples,metric='precomputed',
                     neighbours = 20,normeps=normeps)
     case7.clustering(case7.abundances,'abun',eps,min_samples,metric='precomputed',
@@ -435,6 +436,7 @@ if __name__=='__main__':
     case7.reduction(reduct = PCA, n_components=10)
     case7.clustering(case7.projectspec,'prin',eps,min_samples,metric='precomputed',
                     neighbours = 20,normeps=normeps)
+    """   
     end = time.time()
-    case7.finish()
+#    case7.finish()
     print('Finished desired clustering in {0} seconds'.format(end-start))
