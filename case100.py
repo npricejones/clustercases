@@ -2,7 +2,7 @@ from case_template import *
 
 # run parameters                                                               
 nstars = 7e4 # number of stars                                                 
-sample='allStar_chemscrub_teffcut.npy' # APOGEE sample to draw from            
+sample='allStar_chemscrub_teffcut_dr14.npy' # APOGEE sample to draw from       
 abundancefac = 1 # scaling factor for abundance noise                          
 specfac = 0.01 # scaling factor for spectra noise                              
 centerfac = 1
@@ -14,8 +14,9 @@ crossfitkeys = []
 crossfitatms = [26] # atomic numbers of cross terms                                                                    
 spreadchoice = spreads # choose which abudance spreads to employ
 
-# DBSCAN parameters                                                             
-eps = np.array([0.7])
+# DBSCAN parameters                                                            
+jobs=320 
+normeps=False
 min_samples=np.array([3])
 
 case = caserun(nstars=nstars,sample=sample,abundancefac=abundancefac,
@@ -23,25 +24,16 @@ case = caserun(nstars=nstars,sample=sample,abundancefac=abundancefac,
                  centerspr=spreads,genfn=choosestruct,
                  fullfitkeys=fullfitkeys,fullfitatms=fullfitatms,
                  crossfitkeys=crossfitkeys,crossfitatms=crossfitatms,
-                 phvary=True,fitspec=True,case='20')
+                 phvary=True,fitspec=True,case='100')
 start = time.time()
-case.clustering(case.specinfo.spectra,'spec',eps,min_samples,metric='euclidean',
-                neighbours = 20,normeps=normeps)
-case.clustering(case.abundances,'abun',eps,min_samples,metric='euclidean',
-                neighbours = 20,normeps=normeps)
-case.clustering((case.abundances.T[abuninds(elem,combelem)]).T,'reda',eps,min_samples,metric='euclidean',
-                neighbours = 20,normeps=normeps)
-toph = combine_windows(windows = tophats,combelem=elem,func=np.ma.any)
-case.projspec(toph)
-case.clustering(case.projectspec,'toph',eps,min_samples,metric='euclidean',
-                neighbours = 20,normeps=normeps)
-wind = combine_windows(windows = windows,combelem=combelem,func=np.ma.max)
-case.projspec(wind)
-case.clustering(case.projectspec,'wind',eps,min_samples,metric='euclidean',
-                neighbours = 20,normeps=normeps)
-case.reduction(reduct = PCA, n_components=10)
-case.clustering(case.projectspec,'prin',eps,min_samples,metric='euclidean',
-                 neighbours = 20,normeps=normeps)
+case.clustering(case.specinfo.spectra,'spec',np.array([0.88]),min_samples,metric='euclidean',n_jobs=jobs,neighbours = 20,normeps=normeps)
+case.clustering(case.abundances,'abun',np.array([0.367]),min_samples,metric='euclidean',n_jobs=jobs,neighbours = 20,normeps=normeps)
+case.clustering((case.abundances.T[abuninds(elem,combelem)]).T,'reda',np.array([0.367]),min_samples,metric='euclidean',n_jobs=jobs,neighbours = 20,normeps=normeps)
+case.gen_abundances(1,tingspr)
+case.clustering(case.abundances,'tabn',np.array([0.117]),min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
+case.clustering((case.abundances.T[abuninds(elem,combelem)]).T,'trda',np.array([0.117]),min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
+case.reduction(reduct = PCA, n_components=30)
+case.clustering(case.projectspec,'prin30',np.array([0.128]),min_samples,metric='euclidean',n_jobs=jobs,neighbours = 20,normeps=normeps)
 
 end = time.time()
 case.finish()
