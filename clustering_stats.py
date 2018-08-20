@@ -1,7 +1,5 @@
 import numpy as np
 from sklearn.neighbors import KDTree
-import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm # log-scaled 2D histograms
 from sklearn.metrics.pairwise import euclidean_distances
 default_cmap='viridis' # for 2D histograms                                     
 fs=12
@@ -42,46 +40,6 @@ def sortmembercount(labels):
         members[u] = len(np.where(labels==ulab[u])[0])
     sizelist = np.argsort(members)[::-1]
     return members[sizelist],ulab[sizelist]
-
-def hist2d(fig,ax,x,y,bins=100,clabel=False,vmin=0,vmax=110,norm='lin'):
-    """
-    Create a 2D histogram of data represented by the two dimensions x and y
-    
-    fig:      Figure to plot in
-    ax:       Subplot object to plot in
-    x:        Array of data values in 'x'
-    y:        Array of data values in 'y'
-    bins:     Number of bins in which to divide each axis
-    clabel:   Label for the colourbar - no colourbar is plotted if this is 
-              not given
-    vmin:     Minimum value of the histogram
-    vmax:     Maximum value of the histogram
-    
-    """
-    # Create histogram
-    H,xedges,yedges = np.histogram2d(x,y,bins=bins)
-    # Reorient appropriately
-    H = np.rot90(H)
-    H = np.flipud(H)
-    # Mask where bins are empty
-    Hmasked = np.ma.masked_where(H==0,H)
-    # Plot histogram
-    if norm == 'lin':
-        im = ax.pcolormesh(xedges,yedges,Hmasked,
-                           cmap = plt.get_cmap(default_cmap),
-                           vmin=vmin,vmax=vmax)
-    elif norm == 'log':
-            im = ax.pcolormesh(xedges,yedges,Hmasked,
-                           cmap = plt.get_cmap(default_cmap),
-                           norm=LogNorm(vmin=vmin,vmax=vmax))
-    # If colourbar is desired, plot and label it
-    if clabel:
-        cbar=fig.colorbar(im,pad = 0)
-        cbar.set_label(label=clabel,fontsize=fs,rotation=270,labelpad=15)
-        cbar.ax.tick_params(labelsize=fs)
-    elif not clabel:
-        cbar=fig.colorbar(im,pad = 0)
-        cbar.ax.tick_params(labelsize=fs)
 
 def crossmatch(labels_pred,labels_true,minmembers=1):
     """
