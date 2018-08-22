@@ -49,7 +49,9 @@ typenames = {'spec':'spectra',
              'prin30':'30 principal components',
              'prin50':'50 principal components',
              'tabn':'ting abundances',
-             'trda':'reduced ting abundances'}
+             'trda':'reduced ting abundances',
+             'labn':'leung abundances',
+             'lrda':'reduced leung abundances'}
 nametypes = {'spectra':'spec',
              'abundances':'abun',
              'reduced abundances':'reda',
@@ -63,7 +65,9 @@ nametypes = {'spectra':'spec',
              '30 principal components':'prin30',
              '50 principal components':'prin50',
              'ting abundances':'tabn',
-             'reduced ting abundances':'trda'}
+             'reduced ting abundances':'trda',
+             'leung abundances':'labn',
+             'reduced leung abundances':'lrda'}
 
 #             orange     purple     blue        red       green     pink
 colorlist = ["#F98D20", "#904C77", "#79ADDC", "#ED6A5A", "#8ADD37","#EF518B","#F26DF9","#A9F0D1","#3B3561","#00BFB2"] 
@@ -81,7 +85,9 @@ typecolor = {'spec':"#F98D20",
              'prin30':"#8ADD37",
              'prin50':"#3A1772",
              'tabn':"#79ADDC",
-             'trda':"#ED6A5A"}
+             'trda':"#ED6A5A",
+             'labn':"#A9F0D1",
+             'lrda':"#F26DF9"}
 
 zp = {'Efficiency':5e-3,'Completeness':5e-3,'Found Silhouette':5e-3,'Matched Silhouette':5e-3,'Found Size':0.5,'Matched Size':0.5}
 lzp=1e-3
@@ -432,11 +438,6 @@ class read_results(object):
                     effs = self.eff[matches]
                     coms = self.com[matches]
                     # find out if any matches are good enough
-                    if np.sum(((effs>=self.tseff) & (coms>=self.tscom))) > 0:
-                        print('cluster {0}'.format(lab))
-                        print('matches',np.sum(((effs>=self.tseff) & (coms>=self.tscom))))
-                        print('E',effs[((effs>=self.tseff) & (coms>=self.tscom))])
-                        print('C',coms[((effs>=self.tseff) & (coms>=self.tscom))])
                     if np.sum(((effs>=self.tseff) & (coms>=self.tscom))) > 0:
                         matched+=1
             allmatched[i] = matched

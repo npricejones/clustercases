@@ -66,6 +66,25 @@ c12c13_cls = 0
 spreads = np.array([ch_cls,nh_cls,oh_cls,nah_cls,mgh_cls,alh_cls,sih_cls,sh_cls,kh_cls,
                     cah_cls,tih_cls,vh_cls,mnh_cls,nih_cls,feh_cls])
 
+ch_cls = 0.033
+nh_cls = 0.031
+oh_cls = 0.02
+nah_cls = 0.049
+mgh_cls = 0.017
+alh_cls = 0.033
+sih_cls = 0.018
+sh_cls = 0.040
+kh_cls = 0.021
+cah_cls = 0.015
+tih_cls = 0.019
+vh_cls = 0.039
+mnh_cls = 0.022
+nih_cls = 0.017
+feh_cls = 0.015
+
+leungspr = np.array([ch_cls,nh_cls,oh_cls,nah_cls,mgh_cls,alh_cls,sih_cls,sh_cls,kh_cls,
+                    cah_cls,tih_cls,vh_cls,mnh_cls,nih_cls,feh_cls])
+
 elem = ['C','N','O','Na','Mg','Al','Si','S','K','Ca','Ti','V','Fe','Ni']
 combelem = ['Na','Mg','Al','Si','S','K','Ca','Ti','V','Ni']
 
