@@ -49,7 +49,9 @@ typenames = {'spec':'spectra',
              'prin30':'30 principal components',
              'prin50':'50 principal components',
              'tabn':'ting abundances',
-             'trda':'reduced ting abundances'}
+             'trda':'reduced ting abundances',
+             'labn':'leung abundances',
+             'lrda':'reduced leung abundances'}
 nametypes = {'spectra':'spec',
              'abundances':'abun',
              'reduced abundances':'reda',
@@ -63,7 +65,9 @@ nametypes = {'spectra':'spec',
              '30 principal components':'prin30',
              '50 principal components':'prin50',
              'ting abundances':'tabn',
-             'reduced ting abundances':'trda'}
+             'reduced ting abundances':'trda',
+             'leung abundances':'labn',
+             'reduced leung abundances':'lrda'}
 
 #             orange     purple     blue        red       green     pink
 colorlist = ["#F98D20", "#904C77", "#79ADDC", "#ED6A5A", "#8ADD37","#EF518B","#F26DF9","#A9F0D1","#3B3561","#00BFB2"] 
@@ -81,7 +85,9 @@ typecolor = {'spec':"#F98D20",
              'prin30':"#8ADD37",
              'prin50':"#3A1772",
              'tabn':"#79ADDC",
-             'trda':"#ED6A5A"}
+             'trda':"#ED6A5A",
+             'labn':"#A9F0D1",
+             'lrda':"#F26DF9"}
 
 zp = {'Efficiency':5e-3,'Completeness':5e-3,'Found Silhouette':5e-3,'Matched Silhouette':5e-3,'Found Size':0.5,'Matched Size':0.5}
 lzp=1e-3
@@ -316,8 +322,11 @@ class read_results(object):
             effs = -np.ones(len(labmaster))
             coms = -np.ones(len(labmaster))
             fsil = -2*np.ones(len(labmaster))
+            seff = -np.ones((len(labmaster),3))
+            scom = -np.ones((len(labmaster),3))
+            sfsi = -2*np.ones((len(labmaster),3))
             numc = 0.01*np.ones(len(labmaster))
-            recv = np.zeros(len(labmaster))
+            recv = np.zeros((len(labmaster),3))
             meds = 0.01*np.ones(len(labmaster))
             stds = np.zeros(len(labmaster))
             maxs = 0.01*np.ones(len(labmaster))
@@ -350,6 +359,9 @@ class read_results(object):
                                 effs[match] = np.mean(self.eff[vals])
                                 coms[match] = np.mean(self.com[vals])
                                 fsil[match] = np.mean(self.fsil[vals])
+                                seff[match] = np.percentile(self.eff[vals],[25,50,75])
+                                scom[match] = np.percentile(self.com[vals],[25,50,75])
+                                sfsi[match] = np.percentile(self.fsil[vals],[25,50,75])
                                 ffrc[match],recv[match] = self.found_frac(testnum=testnum,testsize=testsize,testeff=testeff,testcom=testeff,iters=iters)
                             self.maxmem = np.max([self.maxmem,np.max(numc)])
                     except KeyError:
@@ -368,15 +380,17 @@ class read_results(object):
                 tmeds = np.array([0.01]*len(labmaster))
             # If the true number of clusters above the limit is None, move out of plot range
             tnumc[tnumc < 1] = 0.01
-            ufrac = ffrc+recv
+            ufrac = ffrc+recv[:,1]
             ufrac[ufrac >1] = 1
-            lfrac = ffrc-recv
+            lfrac = ffrc-recv[:,1]
             match = np.where((lfrac < 0) & (numc >= 1))
             lfrac[match] = 0
             # Create dictionary for plotting
             statsource = {'params':labmaster,'numc':numc,
                                'avgeff':effs,'avgcom':coms,
-                               'avgfsi':fsil,'maxsiz':maxs,
+                               'avgfsi':fsil,'stdeff':seff,
+                               'stdcom':scom,'stdfsi':sfsi,
+                               'maxsiz':maxs, 'fstd':recv,
                                'xvals':txvals,'medsiz':meds,
                                'tmaxs':tmaxs,'tmeds':tmeds,
                                'tnumc':tnumc,'ffrac':ffrc,
@@ -412,6 +426,7 @@ class read_results(object):
         goodlabels = self.tlabs[self.tsize>self.tssize]
         allmatched = np.zeros(iters)
         for i in range(iters):
+            #print(i)
             matched = 0
             # pick the clusters randomly
             inds = np.random.choice(len(goodlabels),self.tsnum,replace=replace)
@@ -423,10 +438,10 @@ class read_results(object):
                     effs = self.eff[matches]
                     coms = self.com[matches]
                     # find out if any matches are good enough
-                    if np.any(effs>=self.tseff) and np.any(coms>=self.tscom):
+                    if np.sum(((effs>=self.tseff) & (coms>=self.tscom))) > 0:
                         matched+=1
             allmatched[i] = matched
-        return np.mean(allmatched)/self.tsnum, np.std(allmatched)/self.tsnum
+        return np.mean(allmatched)/self.tsnum, np.percentile(allmatched/self.tsnum,[25,50,75])
 
     def read_run_data(self,eps=None,min_sample=None,update=False,datatype=None):
         """
