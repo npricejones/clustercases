@@ -15,7 +15,7 @@ crossfitatms = [26] # atomic numbers of cross terms
 spreadchoice = spreads # choose which abudance spreads to employ
 
 # DBSCAN parameters                                                            
-jobs=320 
+jobs=160 
 normeps=False
 min_samples=np.array([3])
 
