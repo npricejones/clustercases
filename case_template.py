@@ -20,6 +20,7 @@ from sklearn.metrics import silhouette_score
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.decomposition import PCA
+from spectralspace.sample.read_clusterdata import read_caldata
 from clustering_stats import *
 
 # THEORETICAL INTRA CLUSTER SPREAD AT SNR=100                                                                                             
@@ -226,6 +227,22 @@ class caserun(object):
         self.labels = np.arange(len(self.numm))
         self.labels_true = np.repeat(self.labels,self.numm,axis=0)
 
+        self.propkeys=['C_{0}'.format(suff),
+                       'N_{0}'.format(suff),
+                       'O_{0}'.format(suff),
+                       'NA_{0}'.format(suff),
+                       'MG_{0}'.format(suff),
+                       'AL_{0}'.format(suff),
+                       'SI_{0}'.format(suff),
+                       'S_{0}'.format(suff),
+                       'K_{0}'.format(suff),
+                       'CA_{0}'.format(suff),
+                       'TI_{0}'.format(suff),
+                       'V_{0}'.format(suff),
+                       'MN_{0}'.format(suff),
+                       'FE_H',
+                       'NI_{0}'.format(suff)]
+
         # begin cluster generation by creating centers
         if genfn.__name__=='choosestruct':
             self.clusters = makeclusters(genfn=choosestruct,instances=1,
@@ -234,21 +251,7 @@ class caserun(object):
                                          elems=np.array([6,7,8,11,12,13,
                                                          14,16,19,20,22,
                                                          23,25,26,28]),
-                                         propkeys=['C_{0}'.format(suff),
-                                                   'N_{0}'.format(suff),
-                                                   'O_{0}'.format(suff),
-                                                   'NA_{0}'.format(suff),
-                                                   'MG_{0}'.format(suff),
-                                                   'AL_{0}'.format(suff),
-                                                   'SI_{0}'.format(suff),
-                                                   'S_{0}'.format(suff),
-                                                   'K_{0}'.format(suff),
-                                                   'CA_{0}'.format(suff),
-                                                   'TI_{0}'.format(suff),
-                                                   'V_{0}'.format(suff),
-                                                   'MN_{0}'.format(suff),
-                                                   'FE_H',
-                                                   'NI_{0}'.format(suff)])
+                                         propkeys=self.propkeys)
 
         if genfn.__name__=='normalgeneration':
             self.clusters = makeclusters(genfn=normalgeneration,instances=1,
@@ -306,6 +309,37 @@ class caserun(object):
                                numprop=7214,
                                centers = np.zeros(self.specinfo.spectra.shape),
                                stds = specfac*np.ones(self.specinfo.spectra.shape))
+
+    def insert_known_clusters(clusterfname = 'occam_chemscrub_dr14.npy',
+                              specfname='clustercases/occam_chemscrub_dr14_interpspec.npy',
+                              usecenters=True,abundancefac,spreadchoice):
+        prop = np.load(clusterfname)
+        abundances = np.zeros((len(prop),len(self.propkeys)))
+        for col,key in enumerate(self.propkeys):
+            abundances[:,col] = prop[key]
+        clusters = np.unique(prop['CLUSTER'])
+        sizes = np.zeros(clusters.shape)
+        start = self.labels[-1]+1
+        labels = np.zeros(len(prop))
+        centers = np.zeros((len(prop),len(self.propkeys)))
+        for c,cluster in enumerate(clusters):
+            match = prop['CLUSTER']==cluster
+            sizes[c] = np.sum(match)
+            labels[match] = c+start
+            centers[match] = np.repeat(np.median(abundances[match],axis=0),sizes[c],axis=0)
+        self.labels = np.arange(len(self.numm))
+        self.labels_true = np.concatenate((self.labels_true,labels))
+        if usecenters:
+            abudances = centers
+        self.abundances = np.concatenate((self.abundances,abundances))
+        if specfname:
+            specs = np.load(specfname)
+            photosphere = np.array(list(zip(prop['TEFF'],prop['LOGG'])),
+                                    dtype=[('TEFF','float'),('LOGG','float')])
+            self.specinfo.spectra = np.concatenate((self.specinfo.spectra,specs))
+            self.photosphere = np.concatenate((self.photosphere,photosphere))
+
+
 
     def fit_stars(self,fullfitkeys,fullfitatms,crossfitkeys,crossfitatms):
 
