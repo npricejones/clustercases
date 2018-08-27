@@ -1,7 +1,7 @@
 from case_template import *
 
 # run parameters                                                               
-nstars = 5e4 # number of stars                                                 
+nstars = 1e3 # number of stars                                                 
 sample='allStar_chemscrub_teffcut_dr14.npy' # APOGEE sample to draw from            
 abundancefac = 1 # scaling factor for abundance noise                          
 specfac = 1e-2 # scaling factor for spectra noise                              
@@ -15,14 +15,8 @@ crossfitatms = [26] # atomic numbers of cross terms
 spreadchoice = spreads # choose which abudance spreads to employ
 
 # DBSCAN parameters                                                             
-seps = np.array([0.5,0.6,0.7,0.8,0.9,1.0])
-smin = np.array([2]*len(seps))
-aeps = np.array([0.3,0.4,0.5,0.6,0.7])
-amin = np.array([2]*len(aeps))
-peps = np.array([0.01,0.02,0.04,0.05,0.06,0.07,0.08,0.09,0.1,0.15,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0])
-pmin = np.array([2]*len(peps))
 
-min_samples = np.array([2,3,4,5,6,7,8,9,10,11,12,13,14,15,18,20,30,40,50])
+min_samples = np.array([2,3])#,4,5,6,7,8,9,10,11,12,13,14,15,18,20,30,40,50])
 samples = len(min_samples)
 eps = np.array([0.01,0.02,0.04,0.05,0.06,0.07,0.08,0.09,0.1,0.12,0.15,0.19,0.24,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0])
 min_samples = np.tile(min_samples,len(eps))
@@ -37,8 +31,9 @@ case = caserun(nstars=nstars,sample=sample,abundancefac=abundancefac,
                  centerspr=spreads,genfn=choosestruct,
                  fullfitkeys=fullfitkeys,fullfitatms=fullfitatms,
                  crossfitkeys=crossfitkeys,crossfitatms=crossfitatms,
-                 phvary=True,fitspec=True,case='12')
+                 phvary=True,fitspec=True,case='12',usecenters=True,add=True)
 start = time.time()
+
 case.clustering(case.specinfo.spectra,'spec',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
 case.clustering(case.abundances,'abun',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
 case.clustering((case.abundances.T[abuninds(elem,combelem)]).T,'reda',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
