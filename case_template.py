@@ -189,7 +189,7 @@ class caserun(object):
                  centerspr=spreads,genfn=choosestruct,
                  fullfitkeys=fullfitkeys,fullfitatms=fullfitatms,
                  crossfitkeys=crossfitkeys,crossfitatms=crossfitatms,
-                 phvary=True,fitspec=True,case='7'):
+                 phvary=True,fitspec=True,case='7',add=False,usecenters=True):
         self.case = case
         start = time.time()
         self.create_clusters(nstars,sample,genfn,centerfac,centerspr)
@@ -199,6 +199,8 @@ class caserun(object):
         self.create_stars(abundancefac,spreadchoice,specfac,phvary=phvary)
         end = time.time()
         print('Made stars in {0} seconds'.format(end-start))
+        if add:
+            self.insert_known_clusters(abundancefac,spreadchoice,usecenters=usecenters)
         if fitspec:
             start = time.time()
             self.fit_stars(fullfitkeys,fullfitatms,crossfitkeys,crossfitatms)
@@ -270,14 +272,22 @@ class caserun(object):
         dsetname = 'normalgeneration/labels_true_{0}'.format(self.clusters.timestamps[0].decode('UTF-8'))
         self.datafile[dsetname] = self.labels_true
 
-    def gen_abundances(self,abundancefac,spreadchoice):
+    def gen_abundances(self,abundancefac,spreadchoice,update=False):
         
         # Create abundances
-        self.abundances = normalgeneration(num=self.mem,numprop=15,
-                                           centers=np.repeat(self.centers[:],
-                                                             self.numm,
-                                                             axis=0),
-                                           stds = abundancefac*spreadchoice)
+        if not update:
+            self.abundances = normalgeneration(num=self.mem,numprop=15,
+                                               centers=np.repeat(self.centers[:],
+                                                                 self.numm,
+                                                                 axis=0),
+                                               stds = abundancefac*spreadchoice)
+        elif update:
+            self.abundances[:self.mem] = normalgeneration(num=self.mem,numprop=15,
+                                                          centers=np.repeat(self.centers[:],
+                                                                            self.numm,
+                                                                            axis=0),
+                                                          stds = abundancefac*spreadchoice)
+        
 
     def create_stars(self,abundancefac,spreadchoice,specfac,phvary=True):
 
@@ -310,27 +320,39 @@ class caserun(object):
                                centers = np.zeros(self.specinfo.spectra.shape),
                                stds = specfac*np.ones(self.specinfo.spectra.shape))
 
-    def insert_known_clusters(clusterfname = 'occam_chemscrub_dr14.npy',
-                              specfname='clustercases/occam_chemscrub_dr14_interpspec.npy',
-                              usecenters=True,abundancefac,spreadchoice):
+    def insert_known_clusters(self,abundancefac,spreadchoice,
+                              clusterfname = 'occam_chemscrub_dr14.npy',
+                              specfname='occam_chemscrub_dr14_interpspec.npy',
+                              usecenters=True):
         prop = np.load(clusterfname)
         abundances = np.zeros((len(prop),len(self.propkeys)))
         for col,key in enumerate(self.propkeys):
             abundances[:,col] = prop[key]
         clusters = np.unique(prop['CLUSTER'])
-        sizes = np.zeros(clusters.shape)
+        sizes = np.zeros(clusters.shape,dtype=int)
         start = self.labels[-1]+1
         labels = np.zeros(len(prop))
-        centers = np.zeros((len(prop),len(self.propkeys)))
+        centers = np.zeros((len(clusters),len(self.propkeys)))
         for c,cluster in enumerate(clusters):
             match = prop['CLUSTER']==cluster
             sizes[c] = np.sum(match)
             labels[match] = c+start
-            centers[match] = np.repeat(np.median(abundances[match],axis=0),sizes[c],axis=0)
+            centers[c] = np.median(abundances[match],axis=0)
         self.labels = np.arange(len(self.numm))
         self.labels_true = np.concatenate((self.labels_true,labels))
+        self.mem += len(prop)
+        self.numc += len(sizes)
+        self.numm = np.concatenate((self.numm,sizes))
+        attrs =self.centers.attrs
+        cens = np.concatenate((self.centers[:],centers))
+        # Not as circular as it looks
+        self.datafile['center_abundances_wOCs_'+self.clusters.timestamps[0].decode('UTF-8')] = cens
+        self.centers = self.datafile['center_abundances_wOCs_'+self.clusters.timestamps[0].decode('UTF-8')]
+        # Hacky solution to put attributes back in for later fitting
+        for key in list(attrs.keys()):
+            self.centers.attrs[key] = attrs[key]
         if usecenters:
-            abudances = centers
+            abudances = np.repeat(centers,sizes,axis=0)
         self.abundances = np.concatenate((self.abundances,abundances))
         if specfname:
             specs = np.load(specfname)
@@ -338,7 +360,7 @@ class caserun(object):
                                     dtype=[('TEFF','float'),('LOGG','float')])
             self.specinfo.spectra = np.concatenate((self.specinfo.spectra,specs))
             self.photosphere = np.concatenate((self.photosphere,photosphere))
-
+            
 
 
     def fit_stars(self,fullfitkeys,fullfitatms,crossfitkeys,crossfitatms):
