@@ -280,7 +280,7 @@ class read_results(object):
             self.ticklabels.append('{0}, {1}'.format(self.eps[i],self.min_samples[i]))
         self.paramlist = list(np.array(self.paramchoices)[self.goodinds])
 
-    def generate_average_stats(self,minmem=1,update=False,testnum=10,testsize=20,testeff=0.8,testcom=0.8,iters=1):
+    def generate_average_stats(self,minmem=1,update=False,testnum=10,testsize=20,testeff=0.8,testcom=0.8,iters=1,checkcls = 0,checkinds=[]):
         """
         Find average properties across all data types in a run
 
@@ -332,6 +332,7 @@ class read_results(object):
             maxs = 0.01*np.ones(len(labmaster))
             ffrc = np.zeros(len(labmaster))
             txvals = self.xvals+jitter[d]
+            knws = np.zeros(len(labmaster))
 
             # Calculate the true number of clusters above a given limit
             tnumc = np.array([len(self.tsize[self.tsize>minmem])]*len(labmaster))
@@ -363,6 +364,11 @@ class read_results(object):
                                 scom[match] = np.percentile(self.com[vals],[25,50,75])
                                 sfsi[match] = np.percentile(self.fsil[vals],[25,50,75])
                                 ffrc[match],recv[match] = self.found_frac(testnum=testnum,testsize=testsize,testeff=testeff,testcom=testeff,iters=iters)
+                                if checkcls > 0:
+                                    if checkinds==[]:
+                                        knws[match] = self.check_known(testeff=testeff,testcom=testeff,inds=self.tlabs[-checkcls:],e=e)
+                                    elif checkinds!=[]:
+                                        knws[match] = self.check_known(testeff=testeff,testcom=testeff,inds=checkinds,e=e)
                             self.maxmem = np.max([self.maxmem,np.max(numc)])
                     except KeyError:
                         pass
@@ -394,7 +400,8 @@ class read_results(object):
                                'xvals':txvals,'medsiz':meds,
                                'tmaxs':tmaxs,'tmeds':tmeds,
                                'tnumc':tnumc,'ffrac':ffrc,
-                               'ufrac':ufrac,'lfrac':lfrac}
+                               'ufrac':ufrac,'lfrac':lfrac,
+                               'knowns':knws}
             # Add ColumnDataSource object to class
             setattr(self,'{0}_statsource'.format(dtype),ColumnDataSource(statsource))
 
@@ -442,7 +449,29 @@ class read_results(object):
                         matched+=1
             allmatched[i] = matched
         return np.mean(allmatched)/self.tsnum, np.percentile(allmatched/self.tsnum,[25,50,75])
-
+    
+    def check_known(self,testeff=0.8,testcom=0.8,inds=[],e=0):
+        if inds == []:
+            inds = [self.tlabs[-1]]
+        matched = 0
+        for lab in inds:
+            if lab in self.matchtlabs:
+                # find inds of all clusters matched to this one
+                matches = np.where(self.matchtlabs == lab) 
+                plabs = np.unique(self.labels_pred[e])
+                foundind = plabs[matches[0][0]]
+                members = np.where(self.labels_pred[e]==foundind)
+                whichcls = self.data['labels_true'][:][members]
+                # find efficiencies and completeness for these clusters
+                effs = self.eff[matches]
+                coms = self.com[matches]
+                # find out if any matches are good enough
+                if np.sum(((effs>=testeff) & (coms>=testcom))) > 0:
+                    matched+=1
+                    print('I found {0}'.format(lab))
+                    print('Other members: ',whichcls)
+        return matched/len(inds)
+                
     def read_run_data(self,eps=None,min_sample=None,update=False,datatype=None):
         """
         Read in arrays for a specifc fun.
