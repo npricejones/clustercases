@@ -184,7 +184,7 @@ eps = np.repeat(eps,samples)
 
 class caserun(object):
 
-    def __init__(self,nstars=nstars,sample=sample,abundancefac=abundancefac,
+    def __init__(self,nstars=nstars,clsind=2,sample=sample,abundancefac=abundancefac,
                  spreadchoice=spreadchoice,specfac=specfac,centerfac=centerfac,
                  centerspr=spreads,genfn=choosestruct,
                  fullfitkeys=fullfitkeys,fullfitatms=fullfitatms,
@@ -192,7 +192,7 @@ class caserun(object):
                  phvary=True,fitspec=True,case='7',add=False,usecenters=True):
         self.case = case
         start = time.time()
-        self.create_clusters(nstars,sample,genfn,centerfac,centerspr)
+        self.create_clusters(nstars,clsind,sample,genfn,centerfac,centerspr)
         end = time.time()
         print('Made clusters in {0} seconds'.format(end-start))
         start = time.time()
@@ -209,11 +209,12 @@ class caserun(object):
         self.plotfile()
 
 
-    def create_clusters(self,nstars,sample,genfn,centerfac,centerspr):
+    def create_clusters(self,nstars,clsind,sample,genfn,centerfac,centerspr):
         self.nstars = nstars
+        self.clsind = clsind
         self.sample = sample
         # generate number of stars in a each cluster according to the CMF
-        os.system('python3 nstars.py -n {0}'.format(self.nstars))
+        os.system('python3 nstars.py -n {0} -a {1}'.format(self.nstars,self.clsind))
 
         # read in cluster info
         starfile = 'stararray.txt'
