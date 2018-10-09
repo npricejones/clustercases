@@ -26,12 +26,15 @@ jobs=8
 
 combelem = ['Mg','Al','Si','S','K','Ca','Ni']
 
-case = caserun(nstars=nstars,sample=sample,abundancefac=abundancefac,
+case = caserun()
+
+case.makedata(nstars=nstars,sample=sample,abundancefac=abundancefac,
                  spreadchoice=spreadchoice,specfac=specfac,centerfac=centerfac,
                  centerspr=spreads,genfn=choosestruct,
                  fullfitkeys=fullfitkeys,fullfitatms=fullfitatms,
                  crossfitkeys=crossfitkeys,crossfitatms=crossfitatms,
                  phvary=True,fitspec=True,case='12',usecenters=True,add=True)
+
 start = time.time()
 
 case.clustering(case.specinfo.spectra,'spec',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)

@@ -98,6 +98,10 @@ tophats = np.load('tophat_elems.npy')
 windows = np.load('window_elems.npy')
 normeps = True
 
+class fakeclusterclass(object):
+    def __init__(self):
+        self.timestamp = gettimestr()
+
 def abuninds(elems,combelem):
     inds = []
     for e,elem in enumerate(elems):
@@ -184,7 +188,11 @@ eps = np.repeat(eps,samples)
 
 class caserun(object):
 
-    def __init__(self,nstars=nstars,clsind=2,sample=sample,abundancefac=abundancefac,
+    def __init__(self,realdata=False):
+
+        self.realdata = realdata
+
+    def makedata(self,nstars=nstars,clsind=2.1,volume=28,sample=sample,abundancefac=abundancefac,
                  spreadchoice=spreadchoice,specfac=specfac,centerfac=centerfac,
                  centerspr=spreads,genfn=choosestruct,
                  fullfitkeys=fullfitkeys,fullfitatms=fullfitatms,
@@ -192,7 +200,7 @@ class caserun(object):
                  phvary=True,fitspec=True,case='7',add=False,usecenters=True):
         self.case = case
         start = time.time()
-        self.create_clusters(nstars,clsind,sample,genfn,centerfac,centerspr)
+        self.create_clusters(nstars,clsind,volume,sample,genfn,centerfac,centerspr)
         end = time.time()
         print('Made clusters in {0} seconds'.format(end-start))
         start = time.time()
@@ -208,13 +216,17 @@ class caserun(object):
             print('Fit stars in {0} seconds'.format(end-start))
         self.plotfile()
 
+    def importdata(self,specdata,abundata):
+        
+        self.clusters = fakeclusterclass()
 
-    def create_clusters(self,nstars,clsind,sample,genfn,centerfac,centerspr):
+    def create_clusters(self,nstars,clsind,volume,sample,genfn,centerfac,centerspr):
         self.nstars = nstars
         self.clsind = clsind
         self.sample = sample
+        self.volume = volume
         # generate number of stars in a each cluster according to the CMF
-        os.system('python3 nstars.py -n {0} -a {1}'.format(self.nstars,self.clsind))
+        os.system('python3 nstars.py -n {0} -a {1} -v {2}'.format(self.nstars,self.clsind,self.volume))
 
         # read in cluster info
         starfile = 'stararray.txt'
@@ -264,14 +276,17 @@ class caserun(object):
                                                          23,25,26,28]),
                                          centers=np.zeros(15),
                                          stds=np.ones(15)*centerspr)
-        self.datafile = h5py.File(self.clusters.synfilename,'r+')
-        self.centers = self.datafile['center_abundances_'+self.clusters.timestamps[0].decode('UTF-8')]
-
+#        self.datafile = h5py.File(self.clusters.synfilename,'r+')
+#        self.centers = self.datafile['center_abundances_'+self.clusters.timestamps[0].decode('UTF-8')]
+        self.centers = self.clusters.centerdata[0]
+        self.elems = np.array(self.propkeys)
+        self.atmnums = np.array([6,7,8,11,12,13,14,16,19,20,22,23,25,26,28])
+        self.elemnames = np.zeros(self.elems.shape,dtype='S2')
         self.centers[:]*=centerfac
 
         # Save true labels
-        dsetname = 'normalgeneration/labels_true_{0}'.format(self.clusters.timestamps[0].decode('UTF-8'))
-        self.datafile[dsetname] = self.labels_true
+        #dsetname = 'normalgeneration/labels_true_{0}'.format(self.clusters.timestamps[0].decode('UTF-8'))
+        #self.datafile[dsetname] = self.labels_true
 
     def gen_abundances(self,abundancefac,spreadchoice,update=False):
         
@@ -344,14 +359,15 @@ class caserun(object):
         self.mem += len(prop)
         self.numc += len(sizes)
         self.numm = np.concatenate((self.numm,sizes))
-        attrs =self.centers.attrs
+        #attrs =self.centers.attrs
         cens = np.concatenate((self.centers[:],centers))
         # Not as circular as it looks
-        self.datafile['center_abundances_wOCs_'+self.clusters.timestamps[0].decode('UTF-8')] = cens
-        self.centers = self.datafile['center_abundances_wOCs_'+self.clusters.timestamps[0].decode('UTF-8')]
+        #self.datafile['center_abundances_wOCs_'+self.clusters.timestamps[0].decode('UTF-8')] = cens
+        #self.centers = self.datafile['center_abundances_wOCs_'+self.clusters.timestamps[0].decode('UTF-8')]
+        self.centers = cens
         # Hacky solution to put attributes back in for later fitting
-        for key in list(attrs.keys()):
-            self.centers.attrs[key] = attrs[key]
+        #for key in list(attrs.keys()):
+        #    self.centers.attrs[key] = attrs[key]
         if usecenters:
             abudances = np.repeat(centers,sizes,axis=0)
         self.abundances = np.concatenate((self.abundances,abundances))
@@ -371,7 +387,7 @@ class caserun(object):
             fulllist.append(self.photosphere[i])
 
         for i in fullfitatms:
-            elemcol = np.where(self.centers.attrs['atmnums']==i)[0]
+            elemcol = np.where(self.atmnums==i)[0]
             elem = np.repeat(self.centers[:,elemcol],self.numm)
             fulllist.append(elem)
 
@@ -381,7 +397,7 @@ class caserun(object):
             crosslist.append(self.photosphere[i])
 
         for i in crossfitatms:
-            elemcol = np.where(self.centers.attrs['atmnums']==i)[0]
+            elemcol = np.where(self.atmnums==i)[0]
             elem = np.repeat(self.centers[:,elemcol],self.numm)
             crosslist.append(elem)
 
@@ -393,16 +409,18 @@ class caserun(object):
         self.specinfo.spectra = residual
 
         # Save spectra
-        dsetname = 'normalgeneration/member_spectra_{0}'.format(self.clusters.timestamps[0].decode('UTF-8'))
-        self.datafile[dsetname] = self.specinfo.spectra
+        #dsetname = 'normalgeneration/member_spectra_{0}'.format(self.clusters.timestamps[0].decode('UTF-8'))
+        #self.datafile[dsetname] = self.specinfo.spectra
 
     def plotfile(self):
         self.pfname = 'case{0}_{1}.hdf5'.format(self.case,
                                                 self.clusters.timestamps[0].decode('UTF-8'))
         self.plot = h5py.File(self.pfname,'w')
-        self.plot['labels_true'] = self.labels_true
-        tcount,tlabs = membercount(self.labels_true)
-        self.plot['true_size'] = tcount
+        if not self.realdata:
+            self.plot['labels_true'] = self.labels_true
+            tcount,tlabs = membercount(self.labels_true)
+            self.plot['true_size'] = tcount
+            self.plot['centers'] = self.centers
 
     def reduction(self,reduct=PCA,**kwargs):
         red = reduct(**kwargs)
@@ -426,7 +444,7 @@ class caserun(object):
                     vec = np.tile(r,(self.mem,1))
                     self.projectspec += e*vec*self.specinfo.spectra
 
-    def clustering(self,arr,name,eps,min_samples,metric='precomputed',neighbours = 20,normeps=False,n_jobs=1):
+    def clustering(self,arr,name,eps,min_samples,metric='precomputed',neighbours = 20,normeps=False,n_jobs=1,clustersknown=True):
 
         self.plot.attrs['{0}_min'.format(name)] = min_samples
         self.plot.attrs['{0}_eps'.format(name)] = eps
@@ -493,7 +511,7 @@ class caserun(object):
         self.plot['{0}_cbn'.format(name)] = cbn
 
     def finish(self):
-        self.datafile.close()
+        #self.datafile.close()
         self.plot.close()
         print('I saved everything in {0}'.format(self.pfname))
 

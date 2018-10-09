@@ -193,7 +193,7 @@ class read_results(object):
             self.timestamp = timestamp
         # generate list of all allowed data types
         alldtypes = np.unique(np.array([i.split('_')[0] for i in list(self.data.keys())]))
-        special = np.where((alldtypes=='true') | (alldtypes=='labels'))
+        special = np.where((alldtypes=='true') | (alldtypes=='labels') | (alldtypes=='centers'))
         if len(special[0])>0:
             alldtypes = np.delete(alldtypes,special[0])
         self.alldtypes = []

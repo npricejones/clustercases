@@ -1,7 +1,7 @@
 from case_template import *
 
 # run parameters                                                               
-nstars = 1e4 # number of stars                                                 
+nstars = 5e4 # number of stars                                                 
 sample='red_giant_teffcut_dr14.npy' # APOGEE sample to draw from            
 abundancefac = 1 # scaling factor for abundance noise                          
 specfac = 1e-2 # scaling factor for spectra noise                              
@@ -26,7 +26,8 @@ jobs=8
 
 combelem = ['Mg','Al','Si','S','K','Ca','Ni']
 
-case = caserun(nstars=nstars,clsind=0,sample=sample,abundancefac=abundancefac,
+case = caserun()
+case.makedata(nstars=nstars,clsind=0,sample=sample,abundancefac=abundancefac,
                  spreadchoice=spreadchoice,specfac=specfac,centerfac=centerfac,
                  centerspr=spreads,genfn=choosestruct,
                  fullfitkeys=fullfitkeys,fullfitatms=fullfitatms,
@@ -34,29 +35,38 @@ case = caserun(nstars=nstars,clsind=0,sample=sample,abundancefac=abundancefac,
                  phvary=True,fitspec=True,case='A',usecenters=True,add=True)
 start = time.time()
 
-case.clustering(case.specinfo.spectra,'spec',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
-case.clustering(case.abundances,'abun',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
-case.clustering((case.abundances.T[abuninds(elem,combelem)]).T,'reda',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
+case.clustering(case.specinfo.spectra,'spec',[0.75],[3],metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
+case.clustering(case.abundances,'abun',[0.3],[3],metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
 case.gen_abundances(1,tingspr)
-case.clustering(case.abundances,'tabn',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
-case.clustering((case.abundances.T[abuninds(elem,combelem)]).T,'trda',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
+case.clustering(case.abundances,'tabn',[0.12],[3],metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
 case.gen_abundances(1,leungspr)
-case.clustering(case.abundances,'labn',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
-case.clustering((case.abundances.T[abuninds(elem,combelem)]).T,'lrda',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
-toph = combine_windows(windows = tophats,combelem=elem,func=np.ma.any)
-case.projspec(toph)
-case.clustering(case.projectspec,'toph',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
-wind = combine_windows(windows = windows,combelem=combelem,func=np.ma.max)
-case.projspec(wind)
-case.clustering(case.projectspec,'wind',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
-case.reduction(reduct = PCA, n_components=2)
-case.clustering(case.projectspec,'prin2',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
-case.reduction(reduct = PCA, n_components=10)
-case.clustering(case.projectspec,'prin10',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
+case.clustering(case.abundances,'labn',[0.12],[3],metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
 case.reduction(reduct = PCA, n_components=30)
-case.clustering(case.projectspec,'prin30',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
-case.reduction(reduct = PCA, n_components=5)
-case.clustering(case.projectspec,'prin5',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
+case.clustering(case.projectspec,'prin30',[0.15],[3],metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
+
+# case.clustering(case.specinfo.spectra,'spec',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
+# case.clustering(case.abundances,'abun',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
+# case.clustering((case.abundances.T[abuninds(elem,combelem)]).T,'reda',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
+# case.gen_abundances(1,tingspr)
+# case.clustering(case.abundances,'tabn',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
+# case.clustering((case.abundances.T[abuninds(elem,combelem)]).T,'trda',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
+# case.gen_abundances(1,leungspr)
+# case.clustering(case.abundances,'labn',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
+# case.clustering((case.abundances.T[abuninds(elem,combelem)]).T,'lrda',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
+# toph = combine_windows(windows = tophats,combelem=elem,func=np.ma.any)
+# case.projspec(toph)
+# case.clustering(case.projectspec,'toph',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
+# wind = combine_windows(windows = windows,combelem=combelem,func=np.ma.max)
+# case.projspec(wind)
+# case.clustering(case.projectspec,'wind',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
+# case.reduction(reduct = PCA, n_components=2)
+# case.clustering(case.projectspec,'prin2',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
+# case.reduction(reduct = PCA, n_components=10)
+# case.clustering(case.projectspec,'prin10',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
+# case.reduction(reduct = PCA, n_components=30)
+# case.clustering(case.projectspec,'prin30',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
+# case.reduction(reduct = PCA, n_components=5)
+# case.clustering(case.projectspec,'prin5',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
 
 end = time.time()
 case.finish()
