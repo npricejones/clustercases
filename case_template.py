@@ -192,7 +192,7 @@ class caserun(object):
 
         self.realdata = realdata
 
-    def makedata(self,nstars=nstars,clsind=2.1,volume=28,sample=sample,abundancefac=abundancefac,
+    def makedata(self,nstars=nstars,clsind=2.1,volume=100,sample=sample,abundancefac=abundancefac,
                  spreadchoice=spreadchoice,specfac=specfac,centerfac=centerfac,
                  centerspr=spreads,genfn=choosestruct,
                  fullfitkeys=fullfitkeys,fullfitatms=fullfitatms,
@@ -226,7 +226,7 @@ class caserun(object):
         self.sample = sample
         self.volume = volume
         # generate number of stars in a each cluster according to the CMF
-        os.system('python3 nstars.py -n {0} -a {1} -v {2}'.format(self.nstars,self.clsind,self.volume))
+        os.system('python3.6 nstars.py -n {0} -a {1} -v {2}'.format(self.nstars,self.clsind,self.volume))
 
         # read in cluster info
         starfile = 'stararray.txt'
