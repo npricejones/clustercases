@@ -34,13 +34,14 @@ case.makedata(nstars=nstars,sample=sample,abundancefac=abundancefac,volume=300,
                  centerspr=spreads,genfn=choosestruct,
                  fullfitkeys=fullfitkeys,fullfitatms=fullfitatms,
                  crossfitkeys=crossfitkeys,crossfitatms=crossfitatms,
-                 phvary=True,fitspec=True,case='12',usecenters=True,add=True)
+                 phvary=True,fitspec=True,case='12y',usecenters=True,add=True,
+                 clsind=3.1)
 
 start = time.time()
 
 case.clustering(case.specinfo.spectra,'spec',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
 case.clustering(case.abundances,'abun',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
-case.clustering((case.abundances.T[abuninds(elem,combelem)]).T,'reda',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
+#case.clustering((case.abundances.T[abuninds(elem,combelem)]).T,'reda',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
 case.gen_abundances(1,tingspr)
 case.clustering(case.abundances,'tabn',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)
 #case.clustering((case.abundances.T[abuninds(elem,combelem)]).T,'trda',eps,min_samples,metric='precomputed',n_jobs=jobs,neighbours = 20,normeps=normeps)

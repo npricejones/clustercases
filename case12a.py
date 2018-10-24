@@ -29,12 +29,12 @@ combelem = ['Mg','Al','Si','S','K','Ca','Ni']
 
 case = caserun()
 
-case.makedata(nstars=nstars,sample=sample,abundancefac=abundancefac,volume=300,
+case.makedata(nstars=nstars,sample=sample,abundancefac=abundancefac,volume=100,
                  spreadchoice=spreadchoice,specfac=specfac,centerfac=centerfac,
                  centerspr=spreads,genfn=choosestruct,
                  fullfitkeys=fullfitkeys,fullfitatms=fullfitatms,
                  crossfitkeys=crossfitkeys,crossfitatms=crossfitatms,
-                 phvary=True,fitspec=True,case='12',usecenters=True,add=True)
+                 phvary=True,fitspec=True,case='12a',usecenters=True,add=True)
 
 start = time.time()
 
