@@ -226,7 +226,7 @@ class caserun(object):
         self.sample = sample
         self.volume = volume
         # generate number of stars in a each cluster according to the CMF
-        os.system('python3.6 nstars.py -n {0} -a {1} -v {2}'.format(self.nstars,self.clsind,self.volume))
+        os.system('python3.6 nstars_bystar.py -n {0} -a {1} -v {2}'.format(self.nstars,self.clsind,self.volume))
 
         # read in cluster info
         starfile = 'stararray.txt'
