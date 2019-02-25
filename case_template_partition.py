@@ -489,10 +489,12 @@ class caserun(object):
         return labels_pred
 
     def partition(self,num,size,arr,name,eps,min_samples,metric='precomputed',neighbours=20,normeps=False,n_jobs=1,seed=1,total=True):
-        
-        sections = np.zeros((num,size,arr.shape[1]))
-        sectiontags = np.zeros((num,size)).astype(int)
-        self.labels_pred = np.zeros((num,len(eps),arr.shape[0]))-2
+        #sections = np.zeros((num,fullsize,arr.shape[1]))
+        #sectiontags = np.zeros((num,fullsize)).astype(int)
+        sections = []
+        sectiontags = []
+        #self.labels_pred = np.zeros((num,len(eps),arr.shape[0]))-2
+        starters = []
         tree = spatial.cKDTree(arr)
         np.random.seed(1)
         ind = np.random.choice(np.arange(len(arr)),replace=False)
@@ -504,17 +506,18 @@ class caserun(object):
         maxdist =  np.max(distances[np.invert(np.isinf(distances))])
         maxdistind = np.where(np.fabs(distances-maxdist<1e-12))[0][0]
         d,sectioninds = tree.query(arr[maxdistind],k=size)
+        starters.append(maxdistind)
         sectioninds.sort()
-        sectiontags[0] = sectioninds
-        sections[0] = arr[sectioninds]
+        sectiontags.append(sectioninds)
+        sections.append(arr[sectioninds])
         reducedarr = np.delete(arr,sectioninds,axis=0)
         reducedinds = np.delete(np.arange(arr.shape[0]),sectioninds)
-        labs = self.cluster(sections[0],name+'part1',eps,min_samples,metric=metric,normeps=normeps,n_jobs=n_jobs)
-        for e in range(len(eps)):
-            self.labels_pred[0][e][sectioninds] = labs[e]
-        
+        # labs = self.cluster(sections[0],name+'part1',eps,min_samples,metric=metric,normeps=normeps,n_jobs=n_jobs)
+        # for e in range(len(eps)):
+        #     self.labels_pred[0][e][sectioninds] = labs[e]
+
         for i in np.arange(1,num):
-            # Repeat for maximally separated spec
+            # Repeat for maximally separated PC30
             reducedtree = spatial.cKDTree(reducedarr)
             start = time.time()
             distances,indices = reducedtree.query(arr[maxdistind],k=reducedarr.shape[0])
@@ -528,16 +531,54 @@ class caserun(object):
             maxdistind = np.where(np.fabs(distances-maxdist<1e-12))[0][0]
             # NEED TO TRANSLATE IND
             d,newsectioninds = tree.query(arr[reducedinds[maxdistind]],k=size)
+            starters.append(reducedinds[maxdistind])
             newsectioninds.sort()
-            sectiontags[i] = newsectioninds
-            sections[i] = arr[newsectioninds]
+            sectiontags.append(newsectioninds)
+            sections.append(arr[newsectioninds])
             sectioninds = np.concatenate((sectioninds,newsectioninds))
             sectioninds.sort()
             reducedarr = np.delete(arr,sectioninds,axis=0)
             reducedinds = np.delete(np.arange(arr.shape[0]),sectioninds)
-            labs = self.cluster(sections[i],name+'part{0}'.format(i+1),eps,min_samples,metric=metric,normeps=normeps,n_jobs=n_jobs)
+            # labs = self.cluster(sections[i],name+'part{0}'.format(i+1),eps,min_samples,metric=metric,normeps=normeps,n_jobs=n_jobs)
+            # for e in range(len(eps)):
+            #     self.labels_pred[i][e][newsectioninds] = labs[e]
+        print('{0} still unassigned'.format(len(reducedarr)))
+
+        parttrees = {}
+        for n in range(num):
+            parttrees[n] = spatial.cKDTree(arr[sectiontags[n]])
+        separations = []
+        for s,star in tqdm(enumerate(reducedarr)):
+            partdists = []
+            for n in range(num):
+                parttree = parttrees[n]
+                distances,indices = parttree.query(star,k=2)
+                partdists.append(distances[1])
+            separations.append(np.min(np.array(partdists)))
+
+        checks = 100
+        associates = 50
+        sepsort = np.argsort(np.array(separations))
+        for s,star in tqdm(enumerate(reducedarr[sepsort])):
+            distances,indices = tree.query(star,k=checks)
+            locs = []
+            for i in indices:
+                for sectag in range(len(sectiontags)):
+                    if i in sectiontags[sectag]:
+                        locs.append(sectag)
+            if locs == []:
+                #nolabel.append(star)
+                print('no neighbours!')
+            locs = np.array(locs)
+            possible = np.unique(locs[:associates])
+            for p in possible:
+                sectiontags[p] = np.append(sectiontags[p],indices[0])
+                sections[p] = np.append(sections[p],star)
+
+        for n in range(num):
+            labs = self.cluster(sections[n],name+'part{0}'.format(n+1),eps,min_samples,metric=metric,normeps=normeps,n_jobs=n_jobs)
             for e in range(len(eps)):
-                self.labels_pred[i][e][newsectioninds] = labs[e]
+                self.labels_pred[n][e][newsectioninds] = labs[e]
 
         if total:
             self.total_labels_pred = self.cluster(arr,name,eps,min_samples,metric=metric,normeps=normeps,n_jobs=n_jobs)
