@@ -226,7 +226,7 @@ class caserun(object):
         self.sample = sample
         self.volume = volume
         # generate number of stars in a each cluster according to the CMF
-        os.system('python3.6 nstars.py -n {0} -a {1} -v {2}'.format(self.nstars,self.clsind,self.volume))
+        #os.system('python3.6 nstars.py -n {0} -a {1} -v {2}'.format(self.nstars,self.clsind,self.volume))
 
         # read in cluster info
         starfile = 'stararray.txt'
@@ -493,7 +493,7 @@ class caserun(object):
         #sectiontags = np.zeros((num,fullsize)).astype(int)
         sections = []
         sectiontags = []
-        #self.labels_pred = np.zeros((num,len(eps),arr.shape[0]))-2
+        self.labels_pred = []
         starters = []
         tree = spatial.cKDTree(arr)
         np.random.seed(1)
@@ -544,11 +544,13 @@ class caserun(object):
             #     self.labels_pred[i][e][newsectioninds] = labs[e]
         print('{0} still unassigned'.format(len(reducedarr)))
 
+        print(sections[0].shape)
+        print(sectiontags[0].shape)
         parttrees = {}
         for n in range(num):
-            parttrees[n] = spatial.cKDTree(arr[sectiontags[n]])
+            parttrees[n] = spatial.cKDTree(sections[n])
         separations = []
-        for s,star in tqdm(enumerate(reducedarr)):
+        for s,star in enumerate(reducedarr):
             partdists = []
             for n in range(num):
                 parttree = parttrees[n]
@@ -559,7 +561,7 @@ class caserun(object):
         checks = 100
         associates = 50
         sepsort = np.argsort(np.array(separations))
-        for s,star in tqdm(enumerate(reducedarr[sepsort])):
+        for s,star in enumerate(reducedarr[sepsort]):
             distances,indices = tree.query(star,k=checks)
             locs = []
             for i in indices:
@@ -572,13 +574,14 @@ class caserun(object):
             locs = np.array(locs)
             possible = np.unique(locs[:associates])
             for p in possible:
-                sectiontags[p] = np.append(sectiontags[p],indices[0])
-                sections[p] = np.append(sections[p],star)
+                #print(sections[p].shape,star,star.shape,np.array(star).shape)
+                sectiontags[p] = np.append(sectiontags[p],np.array([indices[0]]))
+                sections[p] = np.append(sections[p],np.array([star]),axis=0)
 
         for n in range(num):
-            labs = self.cluster(sections[n],name+'part{0}'.format(n+1),eps,min_samples,metric=metric,normeps=normeps,n_jobs=n_jobs)
-            for e in range(len(eps)):
-                self.labels_pred[n][e][newsectioninds] = labs[e]
+            print(np.array(sections[n]).shape)
+            labs = self.cluster(np.array(sections[n]),name+'part{0}'.format(n+1),eps,min_samples,metric=metric,normeps=normeps,n_jobs=n_jobs)
+            self.labels_pred.append(labs)
 
         if total:
             self.total_labels_pred = self.cluster(arr,name,eps,min_samples,metric=metric,normeps=normeps,n_jobs=n_jobs)
