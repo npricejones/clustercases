@@ -16,7 +16,7 @@ from tagspace.wrappers.clusterfns import RandomAssign
 from tagspace.wrappers.genfns import normalgeneration,choosestruct
 from tagspace.data.spectra import psmspectra
 from tagspace.data import gettimestr
-from sklearn.cluster import DBSCAN, MiniBatchKMeans
+from sklearn.cluster import DBSCAN, MiniBatchKMeans,KMeans
 from sklearn.metrics import silhouette_score
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.preprocessing import PolynomialFeatures
@@ -188,9 +188,9 @@ eps = np.repeat(eps,samples)
 
 class caserun(object):
 
-    def __init__(self,realdata=False):
+    def __init__(self,usefile=False):
 
-        self.realdata = realdata
+        self.usefile = usefile
 
     def makedata(self,nstars=nstars,clsind=2.1,volume=100,sample=sample,abundancefac=abundancefac,
                  spreadchoice=spreadchoice,specfac=specfac,centerfac=centerfac,
@@ -451,32 +451,44 @@ class caserun(object):
         self.plot[name] = arr
         self.plot[name].attrs['description'] = desc
 
+    def calcdistances(self,arr,numuse='all'):
+        if isinstance(numuse,(int,float)):
+            numuse = int(numuse)
+            inds = np.arange(len(arr))
+            useinds = np.random.choice(np.arange(len(arr)),size=numuse,replace=False)
+            self.distances = euclidean_distances(arr[useinds],arr[useinds])
+        else:       
+            self.distances = euclidean_distances(arr,arr)
+
     def cluster(self,arr,name,eps,min_samples,metric='precomputed',normeps=False,n_jobs=1):
         self.plot[name] = arr
 
         self.plot.attrs['{0}_min'.format(name)] = min_samples
         self.plot.attrs['{0}_eps'.format(name)] = eps
-
-        # Generate distances if using precomputed metric
-        if metric=='precomputed':
-            distances = euclidean_distances(arr,arr)
-            typ = np.median(distances)
-            
+    
+        if metric == 'precomputed':
+            if not hasattr(self,'distances'):
+                if arr.shape[0] > int(5.5e4):
+                    metric='euclidean'
+                    self.calcdistances(arr,numuse=1e4)
+                elif arr.shape[0] <= int(5.5e4):
+                    self.calcdistances(arr)
+            if not hasattr(self,'typ'):        
+                self.typ = np.median(self.distances)
         # Intialize predicted labels
-        d = distance_metrics(arr)
+        #d = distance_metrics(arr):
         labels_pred = -np.ones((len(eps),arr.shape[0]))
-        cbn = np.zeros((len(eps),arr.shape[0]))
         for i in range(len(eps)):
             start = time.time()
             if metric =='precomputed':
                 if not normeps:
                     db = DBSCAN(min_samples=min_samples[i],
                                 eps=eps[i],n_jobs=n_jobs,
-                                metric='precomputed').fit(distances)
+                                metric='precomputed').fit(self.distances)
                 elif normeps:
                     db = DBSCAN(min_samples=min_samples[i],
-                                eps=eps[i]*typ,
-                                metric='precomputed').fit(distances)
+                                eps=eps[i]*self.typ,
+                                metric='precomputed').fit(self.distances)
             elif metric!='precomputed':
                 db = DBSCAN(min_samples=min_samples[i],
                             eps=eps[i],n_jobs=n_jobs,
@@ -488,12 +500,20 @@ class caserun(object):
         print('Done DBSCAN {0} of {1} with eps {2} and min neighbours {3} on {4} - {5} seconds'.format(i+1,len(eps),eps[i],min_samples[i],name,np.round(end-start,2)))
         return labels_pred
 
-    def partition(self,num,size,arr,name,eps,min_samples,metric='precomputed',neighbours=20,normeps=False,n_jobs=1,seed=1,total=True):
-        #sections = np.zeros((num,fullsize,arr.shape[1]))
-        #sectiontags = np.zeros((num,fullsize)).astype(int)
+    def kmeanspart(self,arr,num=2):
+        k = KMeans(n_clusters=num).fit(arr)
+        sectiontags = []
+        sections = []
+        inds = np.arange(len(arr))
+        for n in range(num):
+            sectiontags.append(inds[k.labels_==n])
+            sections.append(arr[k.labels_==n])
+        self.partname='kmeans'
+        return sections,sectiontags
+        
+    def custompart(self,arr,num=2,size=int(3e4)):
         sections = []
         sectiontags = []
-        self.labels_pred = []
         starters = []
         tree = spatial.cKDTree(arr)
         np.random.seed(1)
@@ -577,14 +597,31 @@ class caserun(object):
                 #print(sections[p].shape,star,star.shape,np.array(star).shape)
                 sectiontags[p] = np.append(sectiontags[p],np.array([indices[0]]))
                 sections[p] = np.append(sections[p],np.array([star]),axis=0)
+        return sections,sectiontags
 
-        for n in range(num):
-            print(np.array(sections[n]).shape)
-            labs = self.cluster(np.array(sections[n]),name+'part{0}'.format(n+1),eps,min_samples,metric=metric,normeps=normeps,n_jobs=n_jobs)
-            self.labels_pred.append(labs)
+
+    def partition(self,arr,name,eps,min_samples,partionfn=[self.kmeanspart],metric='precomputed',neighbours=20,normeps=False,n_jobs=1,seed=1,total=True,**kwargs):
+
+        if arr.shape[0] > int(5.5e4):
+            metric='euclidean'
+            self.calcdistances(arr,numuse=1e4)
+        elif arr.shape[0] <= int(5.5e4):
+            self.calcdistances(arr)
+            self.typ = np.median(self.distances)
 
         if total:
             self.total_labels_pred = self.cluster(arr,name,eps,min_samples,metric=metric,normeps=normeps,n_jobs=n_jobs)
+
+        sections,sectiontags = partionfn(arr,**kwargs)
+
+        self.labels_pred = []
+
+        for n in range(num):
+            print(np.array(sections[n]).shape)
+            self.calcdistances(sections[n])
+            labs = self.cluster(np.array(sections[n]),name+'part{0}'.format(n+1),eps,min_samples,metric=metric,normeps=normeps,n_jobs=n_jobs)
+            self.labels_pred.append(labs)
+
 
 
     def clustering(self,arr,name,eps,min_samples,metric='precomputed',neighbours = 20,normeps=False,n_jobs=1,clustersknown=True):
