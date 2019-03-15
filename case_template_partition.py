@@ -188,9 +188,9 @@ eps = np.repeat(eps,samples)
 
 class caserun(object):
 
-    def __init__(self,usefile=False):
-
-        self.usefile = usefile
+    def __init__(self):
+        self.timestamp = gettimestr()
+        return None
 
     def makedata(self,nstars=nstars,clsind=2.1,volume=100,sample=sample,abundancefac=abundancefac,
                  spreadchoice=spreadchoice,specfac=specfac,centerfac=centerfac,
@@ -216,10 +216,9 @@ class caserun(object):
             print('Fit stars in {0} seconds'.format(end-start))
         self.plotfile()
 
-    def importdata(self,specdata,abundata):
+    def importdata(self,fname):
+        self.plot = h5py.File(fname)
         
-        self.clusters = fakeclusterclass()
-
     def create_clusters(self,nstars,clsind,volume,sample,genfn,centerfac,centerspr):
         self.nstars = nstars
         self.clsind = clsind
@@ -413,17 +412,15 @@ class caserun(object):
         #self.datafile[dsetname] = self.specinfo.spectra
 
     def plotfile(self):
-        self.pfname = 'case{0}_{1}.hdf5'.format(self.case,
-                                                self.clusters.timestamps[0].decode('UTF-8'))
+        self.pfname = 'case{0}_{1}.hdf5'.format(self.case,self.timestamp)
         self.plot = h5py.File(self.pfname,'w')
-        if not self.realdata:
-            self.plot['labels_true'] = self.labels_true
-            self.plot['labels_true'].attrs['description'] = 'Integer for each star indicating its cluster membership'
-            tcount,tlabs = membercount(self.labels_true)
-            self.plot['true_size'] = tcount
-            self.plot['true_size'].attrs['description'] = 'Size of each integer-labelled cluster'
-            self.plot['centers'] = self.centers
-            self.plot['centers'].attrs['description'] = 'Central abundances used to generate each integer-labelled cluster'
+        self.plot['labels_true'] = self.labels_true
+        self.plot['labels_true'].attrs['description'] = 'Integer for each star indicating its cluster membership'
+        tcount,tlabs = membercount(self.labels_true)
+        self.plot['true_size'] = tcount
+        self.plot['true_size'].attrs['description'] = 'Size of each integer-labelled cluster'
+        self.plot['centers'] = self.centers
+        self.plot['centers'].attrs['description'] = 'Central abundances used to generate each integer-labelled cluster'
 
     def reduction(self,reduct=PCA,**kwargs):
         red = reduct(**kwargs)
@@ -460,14 +457,19 @@ class caserun(object):
         else:       
             self.distances = euclidean_distances(arr,arr)
 
-    def cluster(self,arr,name,eps,min_samples,metric='precomputed',normeps=False,n_jobs=1):
-        self.plot[name] = arr
+    def cluster(self,arr,name,eps,min_samples,metric='precomputed',normeps=False,n_jobs=1,partname=None,savelabels=True):
+        if name not in list(self.plot.keys()):
+            self.plot[name] = arr
 
-        self.plot.attrs['{0}_min'.format(name)] = min_samples
-        self.plot.attrs['{0}_eps'.format(name)] = eps
+            self.plot.attrs['{0}_min'.format(name)] = min_samples
+            self.plot.attrs['{0}_eps'.format(name)] = eps
     
+        print(arr.shape)
+        if not hasattr(self,'partname'):
+            self.partname='nopart'
+
         if metric == 'precomputed':
-            if not hasattr(self,'distances'):
+            if not hasattr(self,'distances'): # FAILS ON RUNS WITH DIFFERENT DATATYPES, NEED NAME CHECK
                 if arr.shape[0] > int(5.5e4):
                     metric='euclidean'
                     self.calcdistances(arr,numuse=1e4)
@@ -495,23 +497,30 @@ class caserun(object):
                             metric=metric).fit(arr)
             labels_pred[i] = db.labels_
 
-        self.plot['{0}_labels_pred'.format(name)] = labels_pred
+        if savelabels:
+            self.plot['{0}_labels_pred'.format(name)] = labels_pred
         end = time.time()
         print('Done DBSCAN {0} of {1} with eps {2} and min neighbours {3} on {4} - {5} seconds'.format(i+1,len(eps),eps[i],min_samples[i],name,np.round(end-start,2)))
         return labels_pred
 
-    def kmeanspart(self,arr,num=2):
+    def kmeanspart(self,arr,num=2,radiscale=1):
+        self.partname = 'kmeans'
+        tree = spatial.cKDTree(arr)
         k = KMeans(n_clusters=num).fit(arr)
+        means = k.cluster_centers_
+        potential_overlap = tree.query_ball_point(means, radiscale*self.typ)
         sectiontags = []
         sections = []
         inds = np.arange(len(arr))
         for n in range(num):
-            sectiontags.append(inds[k.labels_==n])
-            sections.append(arr[k.labels_==n])
-        self.partname='kmeans'
+            indn = inds[k.labels_==n]
+            allinds = np.unique(np.concatenate((indn,potential_overlap[n])))
+            sectiontags.append(allinds)
+            sections.append(arr[allinds])
         return sections,sectiontags
         
     def custompart(self,arr,num=2,size=int(3e4)):
+        self.partname = 'custom'
         sections = []
         sectiontags = []
         starters = []
@@ -599,8 +608,40 @@ class caserun(object):
                 sections[p] = np.append(sections[p],np.array([star]),axis=0)
         return sections,sectiontags
 
+    def findoverlap(self,lenarr,sectiontags):
+        #find overlap and connected stars
+        overlap = []
+        for i in range(lenarr):
+            matchx = []
+            matchy = []
+            for n in range(len(sectiontags)):
+                match = np.where(sectiontags[n]==i)
+                if len(match[0])>=1:
+                    matchx.append(n)
+                    matchy.append(match)
+            matchlist = (np.array(matchx),np.array(matchy))
+            if len(matchlist[0])>1:
+                overlap.append(i)
+        return overlap
+                    
+    def findconnected(self,sectiontags,overlap,labels_pred):
+        fullconnected = []
+        for e in range(len(labels_pred[0])):
+            connected = np.array([],dtype=int)
+            for n in range(len(sectiontags)):
+                connect = {}
+                for o in range(len(overlap)):
+                    match = np.where(sectiontags[n]==overlap[o])
+                    label = labels_pred[n][e][match][0]
+                    if label not in list(connect.keys()):
+                        connect[label] = sectiontags[n][labels_pred[n][e]==label]
+                inds = np.array([i for sublist in list(connect.values()) for i in sublist])
+                connected = np.append(connected,inds)
+            fullconnected.append(np.unique(connected))
+        return fullconnected
 
-    def partition(self,arr,name,eps,min_samples,partionfn=[self.kmeanspart],metric='precomputed',neighbours=20,normeps=False,n_jobs=1,seed=1,total=True,**kwargs):
+
+    def partition(self,num,arr,name,eps,min_samples,partitionfns=[],partitionkwargs = [],metric='precomputed',neighbours=20,normeps=False,n_jobs=1,seed=1,total=True):
 
         if arr.shape[0] > int(5.5e4):
             metric='euclidean'
@@ -611,25 +652,41 @@ class caserun(object):
 
         if total:
             self.total_labels_pred = self.cluster(arr,name,eps,min_samples,metric=metric,normeps=normeps,n_jobs=n_jobs)
+            self.plot['{0}_total_labels_pred'.format(name)]= self.total_labels_pred
 
-        sections,sectiontags = partionfn(arr,**kwargs)
+        for p,partitionfn in enumerate(partitionfns):
+            sections,sectiontags = partitionfn(arr,**partitionkwargs[p])
+            overlap = self.findoverlap(len(arr),sectiontags)
 
-        self.labels_pred = []
+            labels_pred = []
+            self.part_labels_pred = -np.ones(self.total_labels_pred.shape)
 
-        for n in range(num):
-            print(np.array(sections[n]).shape)
-            self.calcdistances(sections[n])
-            labs = self.cluster(np.array(sections[n]),name+'part{0}'.format(n+1),eps,min_samples,metric=metric,normeps=normeps,n_jobs=n_jobs)
-            self.labels_pred.append(labs)
+            for n in range(num):
+                print(np.array(sections[n]).shape)
+                nooverlap = [i for i in range(len(sectiontags[n])) if i not in overlap]
+                self.calcdistances(sections[n])
+                labs = self.cluster(np.array(sections[n]),name+'_'+self.partname+'_part{0}'.format(n+1),eps,min_samples,metric=metric,normeps=normeps,n_jobs=n_jobs)
+                labels_pred.append(labs)
+                for e in range(len(labs)):
+                    labscale = np.max( self.part_labels_pred[e])+1
+                    self.part_labels_pred[e][sectiontags[n][nooverlap]] = labs[e][nooverlap] + labscale
+            connected = self.findconnected(sectiontags,overlap,labels_pred)
 
+            for e in range(len(labels_pred[0])):
+                self.calcdistances(arr[connected[e]])
+                labs = self.cluster(arr[connected[e]],name+'_'+self.partname+'_overlap',[eps[e]],[min_samples[e]],metric=metric,normeps=normeps,n_jobs=n_jobs,savelabels=False)
+                labscale = np.max( self.part_labels_pred[e])+1
+                self.part_labels_pred[e][connected[e]]=labs[0]+labscale
 
+            self.plot['{0}_{1}_connect_labels_pred'.format(name,self.partname)]= self.part_labels_pred
 
     def clustering(self,arr,name,eps,min_samples,metric='precomputed',neighbours = 20,normeps=False,n_jobs=1,clustersknown=True):
 
-        self.plot[name] = arr
+        if name not in list(self.plot.keys()):
+            self.plot[name] = arr
 
-        self.plot.attrs['{0}_min'.format(name)] = min_samples
-        self.plot.attrs['{0}_eps'.format(name)] = eps
+            self.plot.attrs['{0}_min'.format(name)] = min_samples
+            self.plot.attrs['{0}_eps'.format(name)] = eps
 
         # Generate distances if using precomputed metric
         if metric=='precomputed':
