@@ -315,7 +315,6 @@ class read_results(object):
 
         # for each data type, create array to hold result of the runs
         for d,dtype in enumerate(list(nametypes.keys())):
-            print(dtype)
             dtype = nametypes[dtype]
 
             # Initialize arrays
